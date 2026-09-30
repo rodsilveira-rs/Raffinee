@@ -359,8 +359,9 @@ table.t{width:100%;border-collapse:collapse;font-size:13px;min-width:640px}
  * Módulos: CFG (config) · API (Apps Script) · DEMO (dados exemplo)
  *          DB (dados normalizados) · ENG (cálculos/KPIs) · UI · VIEWS · DECK
  * ================================================================= */
-const APP_VERSION = '1.1.0';
+const APP_VERSION = '1.1.1';
 const HISTORICO = [
+  { v: '1.1.1', d: '29/09/2026', t: 'Faixa com a foto da Raffinée na Visão Executiva e card na lateral; correção da primeira abertura conectada; Produtos mostra atingimento de meta em kg quando não há ano anterior; Vendedores mostra a meta enquanto o realizado não chega.' },
   { v: '1.1.0', d: '29/09/2026', t: 'Período personalizado (de mês/ano até mês/ano), importação da planilha de planejamento (metas de empresa, vendedores, clientes e produtos, e histórico mensal de kg), velocímetro de atingimento em kg e metas de produto em kg.' },
   { v: '1.0.0', d: '29/09/2026', t: 'Primeira versão: Visão Executiva, Objetivo x Realizado, Clientes, Vendedores, Produtos, Cobertura, Metas, Apresentações, Central de Arquivos e Importação.' }
 ];
@@ -1044,10 +1045,13 @@ VIEWS.clientes = { t: 'Clientes', busca: '',
 /* === Vendedores === */
 VIEWS.vendedores = { t: 'Vendedores',
   html() { K = ENG.calc(); const vs = K.vends.filter(v => !ENG.f.vend || v.k === ENG.f.vend);
-    return `<div class="vcards">${vs.map(v => { const cart = ENG.carteira({ vend: v.k }); return `<div class="card vcard" onclick="VIEWS.vendedores.abre('${F.esc(v.k).replace(/'/g, "\\'")}')"><div class="nm">${F.esc(v.k)}</div>
-      ${gauge(v.ating, v.ating === null && v.meta ? 'aguarda o realizado' : 'da meta acumulada')}
-      <div class="ln"><span>Realizado</span><b>${DB.temVend ? F.brlC(v.val) : '—'}</b></div><div class="ln"><span>Meta acumulada</span><b>${v.meta !== null ? F.brlC(v.meta) : '—'}</b></div>
-      <div class="ln"><span>Var. YoY</span><b class="${clsVar(v.gR)}">${F.var(v.gR)}</b></div><div class="ln"><span>Kg</span><b>${F.kg(v.kg)}</b></div>
+    const totMeta = vs.reduce((a, v) => a + (v.meta || 0), 0);
+    return `<div class="vcards">${vs.map(v => { const cart = ENG.carteira({ vend: v.k }); const ma = ENG.metaAnoFor('VENDEDOR', v.k); const sh = totMeta ? (v.meta || 0) / totMeta : 0; return `<div class="card vcard" onclick="VIEWS.vendedores.abre('${F.esc(v.k).replace(/'/g, "\\'")}')"><div class="nm">${F.esc(v.k)}</div>
+      ${DB.temVend ? gauge(v.ating, 'da meta acumulada') : `<div style="padding:14px 0 10px"><div class="help">Meta no período</div><div style="font-size:30px;font-weight:800;color:var(--vinho);font-variant-numeric:tabular-nums">${F.brlC(v.meta || 0)}</div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:8px"><span class="mini" style="flex:1;width:auto;height:8px"><i style="width:${sh * 100}%;background:var(--champ)"></i></span><b style="font-size:12.5px">${F.pct(sh, 1)}</b></div><div class="help">da meta da equipe</div>
+        <span class="pill p-neu" style="margin-top:10px">realizado entra com as vendas do ERP</span></div>`}
+      ${DB.temVend ? `<div class="ln"><span>Realizado</span><b>${F.brlC(v.val)}</b></div>` : ''}<div class="ln"><span>Meta acumulada</span><b>${v.meta !== null ? F.brlC(v.meta) : '—'}</b></div>
+      ${DB.temVend ? `<div class="ln"><span>Var. YoY</span><b class="${clsVar(v.gR)}">${F.var(v.gR)}</b></div><div class="ln"><span>Kg</span><b>${F.kg(v.kg)}</b></div>` : `<div class="ln"><span>Meta ${ENG.f.ano}</span><b>${ma?.val ? F.brlC(ma.val) : '—'}</b></div>`}
       <div class="ln"><span>${DB.temCli ? 'Cobertura no mês' : 'Clientes na carteira'}</span><b>${DB.temCli ? `${F.pct(cart.cobertura, 0)} · ${cart.cont.comprou}/${cart.total - cart.cont.inativo}` : cart.total}</b></div></div>`; }).join('')}</div>
     <div class="card"><h3>${ic('vend')}Comparativo</h3>${UI.tabela('t-vend', [{ t: 'Vendedor' }, { t: 'Meta', n: 1 }, { t: 'Realizado', n: 1 }, { t: 'Ating.', n: 1 }, { t: 'Gap', n: 1 }, { t: 'Var. R$', n: 1 }, { t: 'Var. kg', n: 1 }, { t: 'Kg', n: 1 }, { t: 'R$/kg', n: 1 }, { t: 'Ticket médio', n: 1 }, { t: 'Clientes', n: 1 }],
       vs.map(v => ({ v: [v.k, v.meta ?? -1, v.val, v.ating ?? -1, v.gap ?? -1e15, v.gR ?? -99, v.gK ?? -99, v.kg, v.rkg, v.ticket, v.clis], h: [F.esc(v.k), v.meta !== null ? F.brl(v.meta) : '—', DB.temVend ? F.brl(v.val) : '—', pillAting(v.ating, !DB.temVend), v.gap !== null ? `<span class="${v.gap >= 0 ? 'up' : 'dn'}">${F.brl(v.gap)}</span>` : '—', varCell(v.gR), varCell(v.gK), F.kgN(v.kg), F.brl2(v.rkg), F.brl(v.ticket), v.clis], click: `VIEWS.vendedores.abre('${F.esc(v.k).replace(/'/g, "\\'")}')` })), { ordem: 3 })}</div>`; },
@@ -1079,16 +1083,29 @@ VIEWS.vendedores = { t: 'Vendedores',
 VIEWS.produtos = { t: 'Produtos',
   html() { K = ENG.calc(); const k = K; const ps = k.prods;
     const tot = ps.reduce((a, p) => ({ val: a.val + p.val, kg: a.kg + p.kg }), { val: 0, kg: 0 });
-    return `<div class="row2">
+    const topoComp = `<div class="row2">
       <div class="card"><h3>${ic('cresc')}Matriz de crescimento<span class="dir">bolha = faturamento</span></h3><div class="chart-box" style="height:340px"><canvas id="mx"></canvas></div>
         <p class="help">Acima da diagonal, o R$ cresce mais que o kg (preço ou mix). Abaixo, o volume cresce mais que a receita.</p></div>
       <div class="card"><h3>${ic('pizza')}Participação no crescimento</h3>${!k.p.val ? `<p class="help">Mostra quais produtos puxaram o crescimento contra ${ENG.antLbl()}. Aparece quando houver vendas desse período para comparar.</p>` : `<p class="help" style="margin-top:-4px">A empresa ${k.c.val >= k.p.val ? 'cresceu' : 'recuou'} <b>${F.brlC(k.c.val - k.p.val)}</b> contra ${ENG.antLbl()}. Quem puxou:</p>
-        <div class="bars">${[...ps].filter(p => p.contrib !== null).sort((a, b) => (b.val - b.valA) - (a.val - a.valA)).slice(0, 9).map(p => { const dv = p.val - p.valA; const mx = Math.max(...ps.map(x => Math.abs(x.val - x.valA))) || 1; return `<div class="bar"><span class="nm">${F.esc(p.k)}</span><span class="tr"><span class="fi" style="display:block;width:${Math.abs(dv) / mx * 100}%;background:${dv >= 0 ? 'var(--ok)' : 'var(--bad)'}"></span></span><span class="vl ${dv >= 0 ? 'up' : 'dn'}">${F.brlC(dv)} · ${F.pct(p.contrib, 0)}</span></div>`; }).join('')}</div>`}</div></div>
+        <div class="bars">${[...ps].filter(p => p.contrib !== null).sort((a, b) => (b.val - b.valA) - (a.val - a.valA)).slice(0, 9).map(p => { const dv = p.val - p.valA; const mx = Math.max(...ps.map(x => Math.abs(x.val - x.valA))) || 1; return `<div class="bar"><span class="nm">${F.esc(p.k)}</span><span class="tr"><span class="fi" style="display:block;width:${Math.abs(dv) / mx * 100}%;background:${dv >= 0 ? 'var(--ok)' : 'var(--bad)'}"></span></span><span class="vl ${dv >= 0 ? 'up' : 'dn'}">${F.brlC(dv)} · ${F.pct(p.contrib, 0)}</span></div>`; }).join('')}</div>`}</div></div>`;
+    const comMetaKg = ps.filter(p => p.metaKg).sort((a, b) => b.metaKg - a.metaKg).slice(0, 12);
+    const atK = k.metaAc?.kg ? k.c.kg / k.metaAc.kg : null;
+    const topoMeta = `<div class="row2" style="grid-template-columns:minmax(0,1fr) minmax(0,1.6fr)">
+      <div class="card" style="display:flex;flex-direction:column;align-items:center;gap:6px"><h3 style="align-self:flex-start">${ic('vel')}Atingimento da meta em kg</h3>
+        ${gauge(atK, k.metaAc?.kg ? `${F.kg(k.c.kg)} de ${F.kg(k.metaAc.kg)}` : 'sem meta em kg')}
+        <div class="mk" style="width:100%;margin-top:6px"><div class="card"><div class="l">Acima de 100%</div><div class="v up">${ps.filter(p => p.atingKg >= 1).length}</div></div><div class="card"><div class="l">Entre 90% e 100%</div><div class="v nt">${ps.filter(p => p.atingKg >= .9 && p.atingKg < 1).length}</div></div><div class="card"><div class="l">Abaixo de 90%</div><div class="v dn">${ps.filter(p => p.atingKg !== null && p.atingKg < .9).length}</div></div></div></div>
+      <div class="card"><h3>${ic('caixa')}Maiores metas: kg realizado x meta<span class="dir">% da meta</span></h3>
+        <div class="bars">${comMetaKg.map(p => { const w = Math.min(1, (p.atingKg || 0) / 1.25) * 100; const cor = p.atingKg >= 1 ? 'var(--ok)' : p.atingKg >= .9 ? 'var(--champ-2)' : 'var(--bad)';
+          return `<div class="bar click" onclick="VIEWS.produtos.abre('${F.esc(p.k).replace(/'/g, "\\'")}')"><span class="nm">${F.esc(p.k)}</span><span class="tr"><span class="fi" style="display:block;width:${w}%;background:${cor}"></span></span><span class="vl ${p.atingKg >= 1 ? 'up' : p.atingKg >= .9 ? 'nt' : 'dn'}">${F.pct(p.atingKg, 0)} · ${F.kg(p.kg)}</span></div>`; }).join('') || '<p class="help">Sem metas de kg por produto no período.</p>'}</div></div></div>
+    <div class="card"><h3>${ic('visao')}Kg por mês: realizado x meta</h3><div class="chart-box" style="height:240px"><canvas id="kgm"></canvas></div></div>`;
+    return `${k.p.val ? topoComp : topoMeta}
     <div class="card"><h3>${ic('caixa')}Kg e R$ acumulados por produto<span class="dir">concentração top 3: <b>${F.pct(k.conc3p, 0)}</b></span></h3>
       ${UI.tabela('t-prod', [{ t: 'Produto' }, { t: 'R$ acumulado', n: 1 }, { t: 'Var. R$', n: 1 }, { t: 'Kg acumulado', n: 1 }, { t: 'Var. kg', n: 1 }, { t: 'Meta kg', n: 1 }, { t: 'Ating. kg', n: 1 }, { t: 'R$/kg', n: 1 }, { t: '% fat.', n: 1 }, { t: '% vol.', n: 1 }, { t: 'Clientes', n: 1 }, { t: 'Movimento' }],
         ps.map(p => ({ v: [p.k, p.val, p.gR ?? -99, p.kg, p.gK ?? -99, p.metaKg ?? -1, p.atingKg ?? -1, p.rkg, p.shV, p.shK, p.clis, p.cls[0]], h: [F.esc(p.k), F.brl(p.val), varCell(p.gR), F.kgN(p.kg), varCell(p.gK), p.metaKg ? F.kgN(p.metaKg) : '—', p.metaKg ? pillAting(p.atingKg) : '—', F.brl2(p.rkg), F.pct(p.shV), F.pct(p.shK), DB.temCli ? p.clis : '—', `<span class="pill ${p.cls[1]}">${p.cls[0]}</span>`], click: `VIEWS.produtos.abre('${F.esc(p.k).replace(/'/g, "\\'")}')` })),
         { ordem: 1, foot: ['Total', F.brl(tot.val), varCell(k.gR), F.kgN(tot.kg), varCell(k.gK), k.metaAc?.kg ? F.kgN(k.metaAc.kg) : '', k.metaAc?.kg ? pillAting(tot.kg / k.metaAc.kg) : '', F.brl2(k.rkg), '100%', '100%', '', ''] })}</div>`; },
-  pos() { this.matriz(document.getElementById('mx'), K, true); },
+  pos() { const k = K; if (k.p.val) return this.matriz(document.getElementById('mx'), k, true);
+    CH.novo(document.getElementById('kgm'), { type: 'bar', data: { labels: k.lbl, datasets: [{ label: 'Meta kg', data: k.serieMeta ? k.serieMeta.map(x => x.kg) : [], backgroundColor: CH.css('--bege'), borderRadius: 4 }, { label: 'Realizado kg', data: k.mensal.map(x => x.kg), backgroundColor: CH.css('--vinho'), borderRadius: 4 }] },
+      options: { plugins: { legend: { display: true, position: 'bottom' }, tooltip: { callbacks: { label: t => ` ${t.dataset.label}: ${F.kg(t.raw)}` } } }, scales: { y: { ticks: { callback: v => F.kg(v) } }, x: { grid: { display: false } } } } }); },
   matriz(el, k, rot) {
     const ps = k.prods.filter(p => p.gR !== null && p.gK !== null); if (!ps.length) { if (el) el.parentElement.innerHTML = `<p class="help">A matriz compara com o mesmo período de ${ENG.antLbl()}. Aparece quando houver vendas dos dois períodos.</p>`; return; }
     const mx = Math.max(...ps.map(p => p.val)); const lim = Math.min(150, Math.max(30, Math.ceil((Math.max(...ps.map(p => Math.max(Math.abs(p.gR), Math.abs(p.gK)))) * 100 + 5) / 10) * 10)) / 100;
