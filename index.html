@@ -1479,24 +1479,28 @@ const APP = {
     if (CFG.demo) { DB.carregar(DEMO.gerar()); DB.fonte = 'dados de exemplo'; DB.atualizadoEm = Date.now(); return; }
     const j = await API.dados(); DB.carregar(j.dados); DB.atualizadoEm = Date.now(); DB.fonte = 'base atualizada em ' + new Date().toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
     try { localStorage.setItem('raffinee_cache', JSON.stringify({ t: Date.now(), d: j.dados })); } catch (e) {}
-    UI.filtros(); UI.render();
+    if (this.pronto) { UI.filtros(); UI.render(); }
+  },
+  /** Período inicial: o último usado neste navegador ou o ano atual até o último mês com vendas */
+  periodoPadrao(fs) {
+    const hoje = new Date(); const anos = DB.anos || [];
+    ENG.f = fs && fs.aIni && anos.includes(fs.ano) ? { ...ENG.f, ...fs } : { aIni: 0, mIni: 1, ano: hoje.getFullYear(), mFim: 0, vend: '', cli: '', prod: '', canal: '' };
+    if (!ENG.f.mFim) { const ult = DB.maxData && +DB.maxData.slice(0, 4) === ENG.f.ano ? +DB.maxData.slice(5, 7) : 0; ENG.f.mFim = ult || (ENG.f.ano === hoje.getFullYear() ? hoje.getMonth() + 1 : 12); }
+    if (!ENG.f.aIni) { ENG.f.aIni = ENG.f.ano; ENG.f.mIni = 1; }
   },
   async init() {
     // Conexão por link: index.html?api=...&k=...
     const qs = new URLSearchParams(location.search); if (qs.get('api')) { CFG.set({ api: qs.get('api'), chave: qs.get('k') || '', demo: false }); history.replaceState(null, '', location.pathname + location.hash); }
     const c = CFG.get(); if (c.tema) document.documentElement.dataset.theme = c.tema;
     UI.init();
+    const esconde = () => { document.getElementById('loading').hidden = true; };
+    const inicia = () => { this.periodoPadrao(c.filtros); this.pronto = true; UI.filtros(); UI.rota(); esconde(); };
     let carregou = false;
-    if (!CFG.demo) { try { const cache = JSON.parse(localStorage.getItem('raffinee_cache') || 'null'); if (cache) { DB.carregar(cache.d); DB.fonte = 'cópia local de ' + new Date(cache.t).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }); carregou = true; } } catch (e) {} }
     if (CFG.demo) { DB.carregar(DEMO.gerar()); DB.fonte = 'dados de exemplo'; carregou = true; }
-    const hoje = new Date();
-    const fs = c.filtros; const temAno = y => DB.anos.includes(y);
-    ENG.f = fs && fs.aIni && temAno(fs.ano) ? { ...ENG.f, ...fs } : { aIni: 0, mIni: 1, ano: hoje.getFullYear(), mFim: 0, vend: '', cli: '', prod: '', canal: '' };
-    if (!ENG.f.mFim) { const ult = DB.maxData && +DB.maxData.slice(0, 4) === ENG.f.ano ? +DB.maxData.slice(5, 7) : 0; ENG.f.mFim = ult || (ENG.f.ano === hoje.getFullYear() ? hoje.getMonth() + 1 : 12); }
-    if (!ENG.f.aIni) { ENG.f.aIni = ENG.f.ano; ENG.f.mIni = 1; }
-    if (carregou) { UI.filtros(); UI.rota(); document.getElementById('loading').hidden = true; }
-    if (!CFG.demo) { try { await this.recarregar(); document.getElementById('loading').hidden = true; if (!carregou) UI.rota(); }
-      catch (e) { document.getElementById('loading').hidden = true; if (!carregou) { DB.carregar(DEMO.gerar()); DB.fonte = 'dados de exemplo'; UI.filtros(); UI.rota(); } UI.toast('Não foi possível ler a base de dados: ' + e.message + '. Confira em Configurações.', 7000); } }
+    else { try { const cache = JSON.parse(localStorage.getItem('raffinee_cache') || 'null'); if (cache) { DB.carregar(cache.d); DB.fonte = 'cópia local de ' + new Date(cache.t).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }); carregou = true; } } catch (e) {} }
+    if (carregou) inicia();
+    if (!CFG.demo) { try { await this.recarregar(); if (!carregou) inicia(); }
+      catch (e) { if (!carregou) { DB.carregar(DEMO.gerar()); DB.fonte = 'dados de exemplo'; inicia(); } esconde(); UI.toast('Não foi possível ler a base de dados: ' + e.message + '. Confira em Configurações.', 7000); } }
     this.vigiarVersao();
   },
   /** Avisa quando uma nova versão foi publicada no GitHub (version.json) */
