@@ -63,6 +63,7 @@ button{cursor:pointer}
 .top .sub{color:var(--txt-2);font-size:15px;margin-top:4px}
 .filtros{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end}
 .fl{display:flex;flex-direction:column;gap:3px;min-width:118px}
+.fl-per{min-width:104px}
 .fl label{font-size:11px;font-weight:600;color:var(--txt-2);letter-spacing:.3px;padding-left:2px}
 .fl select{appearance:none;background:var(--card) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%237C6861' fill='none' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat right 10px center;border:1px solid var(--linha);border-radius:10px;padding:8px 28px 8px 11px;font-size:13px;max-width:190px;box-shadow:var(--sombra)}
 .btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--linha);background:var(--card);border-radius:10px;padding:9px 14px;font-weight:600;font-size:13px;color:var(--txt)}
@@ -317,7 +318,8 @@ table.t{width:100%;border-collapse:collapse;font-size:13px;min-width:640px}
       </div>
       <button class="btn mfil" onclick="document.getElementById('filtros').classList.toggle('open')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M7 12h10M10 18h4"/></svg>Filtros</button>
       <div class="filtros" id="filtros">
-        <div class="fl"><label for="f-per">Período</label><select id="f-per"></select></div>
+        <div class="fl fl-per"><label for="f-de">De</label><select id="f-de"></select></div>
+        <div class="fl fl-per"><label for="f-ate">Até</label><select id="f-ate"></select></div>
         <div class="fl"><label for="f-vend">Vendedor</label><select id="f-vend"></select></div>
         <div class="fl"><label for="f-cli">Cliente</label><select id="f-cli"></select></div>
         <div class="fl"><label for="f-prod">Produto</label><select id="f-prod"></select></div>
@@ -343,8 +345,9 @@ table.t{width:100%;border-collapse:collapse;font-size:13px;min-width:640px}
  * Módulos: CFG (config) · API (Apps Script) · DEMO (dados exemplo)
  *          DB (dados normalizados) · ENG (cálculos/KPIs) · UI · VIEWS · DECK
  * ================================================================= */
-const APP_VERSION = '1.0.0';
+const APP_VERSION = '1.1.0';
 const HISTORICO = [
+  { v: '1.1.0', d: '29/09/2026', t: 'Período personalizado (de mês/ano até mês/ano), importação da planilha de planejamento (metas de empresa, vendedores, clientes e produtos, e histórico mensal de kg), velocímetro de atingimento em kg e metas de produto em kg.' },
   { v: '1.0.0', d: '29/09/2026', t: 'Primeira versão: Visão Executiva, Objetivo x Realizado, Clientes, Vendedores, Produtos, Cobertura, Metas, Apresentações, Central de Arquivos e Importação.' }
 ];
 
@@ -511,20 +514,32 @@ const DB = {
     this.vendas = (d.vendas?.rows || []).map(r => {
       const x = Object.fromEntries(d.vendas.cols.map((c, i) => [c, r[i]]));
       const dt = String(x.DATA).slice(0, 10);
-      return { d: dt, y: +dt.slice(0, 4), m: +dt.slice(5, 7), ped: String(x.PEDIDO || ''), cc: String(x.COD_CLIENTE || x.CLIENTE), cli: String(x.CLIENTE || ''), vend: String(x.VENDEDOR || ''), cp: String(x.COD_PRODUTO || x.PRODUTO), prod: String(x.PRODUTO || ''), canal: String(x.CANAL || ''), qtd: this.num(x.QTD), kg: this.num(x.KG), val: this.num(x.VALOR) };
+      return { d: dt, y: +dt.slice(0, 4), m: +dt.slice(5, 7), ped: String(x.PEDIDO || ''), cc: String(x.COD_CLIENTE || x.CLIENTE), cli: String(x.CLIENTE || ''), vend: String(x.VENDEDOR || ''), orig: String(x.ORIGEM || ''), cp: String(x.COD_PRODUTO || x.PRODUTO), prod: String(x.PRODUTO || ''), canal: String(x.CANAL || ''), qtd: this.num(x.QTD), kg: this.num(x.KG), val: this.num(x.VALOR) };
     }).filter(v => v.y > 2000);
     this.clientes = this.obj(d.clientes);
     this.produtos = this.obj(d.produtos);
     this.vendedores = this.obj(d.vendedores);
     this.metas = this.obj(d.metas).map(m => ({ ano: +m.ANO, mes: +m.MES, tipo: String(m.TIPO).toUpperCase(), chave: String(m.CHAVE), val: this.num(m.META_VALOR), kg: this.num(m.META_KG) }));
     this.arquivos = this.obj(d.arquivos);
+    // Nome do produto vem do cadastro (renomear no cadastro atualiza o painel inteiro).
+    // Cadastro provisório ("Cód. 100") aprende o nome real quando ele aparece nas vendas.
+    const provisorio = n => /^Cód\. /.test(String(n || ''));
+    const nomeVenda = new Map(); this.vendas.forEach(v => { if (v.cp && v.prod && v.prod !== v.cp && !provisorio(v.prod)) nomeVenda.set(v.cp, v.prod); });
+    this.produtos.forEach(p => { const c = String(p.COD_PRODUTO); if ((!p.PRODUTO || provisorio(p.PRODUTO)) && nomeVenda.has(c)) p.PRODUTO = nomeVenda.get(c); });
+    const nomeProd = new Map(this.produtos.filter(p => p.PRODUTO).map(p => [String(p.COD_PRODUTO), String(p.PRODUTO)]));
+    this.vendas.forEach(v => { if (v.cp && nomeProd.has(v.cp)) v.prod = nomeProd.get(v.cp); else if (!v.prod) v.prod = v.cp; });
     // Cadastro de clientes derivado das vendas quando a aba CLIENTES estiver vazia/incompleta
     const cad = new Map(this.clientes.map(c => [String(c.COD_CLIENTE), c]));
-    this.vendas.forEach(v => { if (!cad.has(v.cc)) cad.set(v.cc, { COD_CLIENTE: v.cc, CLIENTE: v.cli, VENDEDOR: v.vend, CANAL: v.canal, STATUS: 'ATIVO' }); });
+    this.vendas.forEach(v => { if (v.cc && !cad.has(v.cc)) cad.set(v.cc, { COD_CLIENTE: v.cc, CLIENTE: v.cli, VENDEDOR: v.vend, CANAL: v.canal, STATUS: 'ATIVO' }); });
     this.clientes = [...cad.values()];
     this.indices();
   },
+  indexaMetas() { const ix = new Map(); const add = (k, m) => { const o = ix.get(k) || { val: 0, kg: 0 }; o.val += m.val; o.kg += m.kg; ix.set(k, o); };
+    this.metas.forEach(m => { add(`${m.tipo}|${m.chave}|${m.ano}|${m.mes}`, m); add(`${m.tipo}|*|${m.ano}|${m.mes}`, m); }); this.metaIdx = ix; return ix; },
   indices() {
+    this.indexaMetas();
+    this.temCli = this.vendas.some(v => v.cc); this.temVend = this.vendas.some(v => v.vend);
+    this.resumo = this.vendas.some(v => v.orig === 'PLANEJAMENTO');
     const u = (arr) => [...new Set(arr.filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
     this.listaVend = u([...this.vendas.map(v => v.vend), ...this.vendedores.map(v => v.VENDEDOR)]);
     this.listaCli = u(this.clientes.map(c => c.CLIENTE));
@@ -537,41 +552,68 @@ const DB = {
 
 /* ---------------- ENG (motor de indicadores) ---------------- */
 const ENG = {
-  f: { ano: 0, mFim: 0, vend: '', cli: '', prod: '', canal: '' },
+  /* Período personalizado: de aIni/mIni até ano/mFim (ano = ano final) */
+  f: { aIni: 0, mIni: 1, ano: 0, mFim: 0, vend: '', cli: '', prod: '', canal: '' },
   diasMes: (y, m) => new Date(y, m, 0).getDate(),
   hojeISO() { const h = new Date(); return h.getFullYear() + '-' + String(h.getMonth() + 1).padStart(2, '0') + '-' + String(h.getDate()).padStart(2, '0'); },
+  ym: (y, m) => y * 12 + (m - 1),
+  /** Lista de [ano, mês] do período (off = anos para trás, para comparação) */
+  meses(off = 0) { const out = []; const a = this.ym(this.f.aIni, this.f.mIni), b = this.ym(this.f.ano, this.f.mFim); for (let i = a; i <= b; i++) out.push([Math.floor(i / 12) - off, i % 12 + 1]); return out; },
+  multiAno() { return this.f.aIni !== this.f.ano; },
+  rotMes(y, m) { return MESES[m - 1] + (this.multiAno() ? '/' + String(y).slice(2) : ''); },
+  rotulo(off = 0) { const { aIni, mIni, ano, mFim } = this.f;
+    if (aIni === ano) return (mIni === mFim ? MESES[mFim - 1] : `${MESES[mIni - 1]} a ${MESES[mFim - 1]}`) + ` / ${ano - off}`;
+    return `${MESES[mIni - 1]}/${aIni - off} a ${MESES[mFim - 1]}/${ano - off}`; },
+  antLbl() { return this.multiAno() ? 'período ant.' : String(this.f.ano - 1); },
   /** Data de referência: hoje (se o período inclui o mês corrente) ou o último dia do mês final */
   ref() {
     const { ano, mFim } = this.f; const hoje = this.hojeISO();
     const fimMes = `${ano}-${String(mFim).padStart(2, '0')}-${String(this.diasMes(ano, mFim)).padStart(2, '0')}`;
     return fimMes > hoje ? hoje : fimMes;
   },
-  /** Fração do mês final já decorrida (para meta proporcional e YoY justo) */
+  /** Fração do mês final já decorrida (para meta proporcional e comparação justa) */
   fracMes() { const r = this.ref(); const { ano, mFim } = this.f; if (+r.slice(0, 4) !== ano || +r.slice(5, 7) !== mFim) return 1; return +r.slice(8, 10) / this.diasMes(ano, mFim); },
   diaCorte() { return this.fracMes() < 1 ? +this.ref().slice(8, 10) : 31; },
   passa(v, ign = {}) { const f = this.f;
     return (!f.vend || ign.vend || v.vend === f.vend) && (!f.cli || ign.cli || v.cli === f.cli) && (!f.prod || ign.prod || v.prod === f.prod) && (!f.canal || ign.canal || v.canal === f.canal); },
-  /** Vendas do ano/meses com filtros; cortaDia aplica o mesmo dia do mês final (comparação justa) */
-  periodo(ano, mIni, mFim, ign = {}, cortaDia = true) {
-    const dc = cortaDia ? this.diaCorte() : 31;
-    return DB.vendas.filter(v => v.y === ano && v.m >= mIni && v.m <= mFim && (v.m < mFim || +v.d.slice(8, 10) <= dc) && this.passa(v, ign));
-  },
+  /** Venda dentro do período (off = anos para trás). No último mês corta no mesmo dia (comparação justa) */
+  noPeriodo(v, off = 0) { const k = this.ym(v.y + off, v.m), a = this.ym(this.f.aIni, this.f.mIni), b = this.ym(this.f.ano, this.f.mFim);
+    return k >= a && k <= b && (k < b || +v.d.slice(8, 10) <= this.diaCorte()); },
+  rows(off = 0, ign = {}) { return DB.vendas.filter(v => this.noPeriodo(v, off) && this.passa(v, ign)); },
+  /** Compatibilidade: vendas de um ano, do mês mIni ao mFim */
+  periodo(ano, mIni, mFim, ign = {}) { const dc = this.diaCorte(); return DB.vendas.filter(v => v.y === ano && v.m >= mIni && v.m <= mFim && (v.m < mFim || +v.d.slice(8, 10) <= dc) && this.passa(v, ign)); },
   soma(arr) { let val = 0, kg = 0; for (const v of arr) { val += v.val; kg += v.kg; } return { val, kg }; },
-  /** Nível de meta conforme filtros ativos */
+  /** Série mês a mês do período */
+  serie(off = 0, ign = {}, filtro) { const ms = this.meses(off); const idx = new Map(ms.map(([y, m], i) => [this.ym(y, m), i])); const out = ms.map(() => ({ val: 0, kg: 0 }));
+    for (const v of DB.vendas) { const i = idx.get(this.ym(v.y, v.m)); if (i !== undefined && this.passa(v, ign) && (!filtro || filtro(v))) { out[i].val += v.val; out[i].kg += v.kg; } } return out; },
+  mesTotal(y, m, ign = {}) { let val = 0; for (const v of DB.vendas) if (v.y === y && v.m === m && this.passa(v, ign)) val += v.val; return val; },
+
+  /* ---- Metas ---- */
   nivelMeta(over) { const f = { ...this.f, ...over };
     if (f.cli) return ['CLIENTE', f.cli]; if (f.prod) return ['PRODUTO', f.prod]; if (f.vend) return ['VENDEDOR', f.vend]; if (f.canal) return null; return ['EMPRESA', 'EMPRESA']; },
-  metaMes(tipo, chave, ano, mes) {
-    let arr = DB.metas.filter(m => m.ano === ano && m.mes === mes && m.tipo === tipo && m.chave === chave);
-    if (!arr.length && tipo === 'EMPRESA') arr = DB.metas.filter(m => m.ano === ano && m.mes === mes && m.tipo === 'VENDEDOR');
-    if (!arr.length) return null;
-    return arr.reduce((a, m) => ({ val: a.val + m.val, kg: a.kg + m.kg }), { val: 0, kg: 0 });
+  /** Uma meta pode estar gravada pelo nome ou pelo código (produto e cliente) */
+  chaves(tipo, chave) {
+    if (tipo === 'PRODUTO') { const p = DB.produtos.find(p => p.PRODUTO === chave || String(p.COD_PRODUTO) === String(chave)); return p ? [String(p.PRODUTO), String(p.COD_PRODUTO)] : [String(chave)]; }
+    if (tipo === 'CLIENTE') { const c = DB.clientes.find(c => c.CLIENTE === chave || String(c.COD_CLIENTE) === String(chave)); return c ? [String(c.CLIENTE), String(c.COD_CLIENTE)] : [String(chave)]; }
+    return [String(chave)];
   },
-  metasSerie(over) { const n = this.nivelMeta(over); if (!n) return null; const out = [];
-    let tem = false; for (let m = 1; m <= 12; m++) { const x = this.metaMes(n[0], n[1], this.f.ano, m); if (x) tem = true; out.push(x || { val: 0, kg: 0 }); }
-    return tem ? out : null; },
+  nomeChave(tipo, chave) { return this.chaves(tipo, chave)[0]; },
+  metaMes(tipo, chave, ano, mes) {
+    const ix = DB.metaIdx || DB.indexaMetas(); let out = null;
+    for (const k of new Set(this.chaves(tipo, chave))) { const x = ix.get(`${tipo}|${k}|${ano}|${mes}`); if (x) { out = out || { val: 0, kg: 0 }; out.val += x.val; out.kg += x.kg; } }
+    if (!out && tipo === 'EMPRESA') out = ix.get(`VENDEDOR|*|${ano}|${mes}`) || null;
+    return out;
+  },
+  /** Metas mês a mês do período (null se não houver nenhuma) */
+  metasSerieFor(tipo, chave) { let tem = false; const out = this.meses().map(([y, m]) => { const x = this.metaMes(tipo, chave, y, m); if (x) tem = true; return x || { val: 0, kg: 0 }; }); return tem ? out : null; },
+  metasSerie(over) { const n = this.nivelMeta(over); return n ? this.metasSerieFor(n[0], n[1]) : null; },
   metaAcum(serie) { if (!serie) return null; const fr = this.fracMes(); let v = 0, k = 0;
-    for (let m = 1; m <= this.f.mFim; m++) { const p = m === this.f.mFim ? fr : 1; v += serie[m - 1].val * p; k += serie[m - 1].kg * p; } return { val: v, kg: k }; },
+    serie.forEach((x, i) => { const p = i === serie.length - 1 ? fr : 1; v += x.val * p; k += x.kg * p; }); return { val: v, kg: k }; },
+  metaAcumFor(tipo, chave) { return this.metaAcum(this.metasSerieFor(tipo, chave)); },
+  /** Meta do ano final inteiro (para o ritmo necessário) */
+  metaAnoFor(tipo, chave) { let tem = false, val = 0, kg = 0; for (let m = 1; m <= 12; m++) { const x = this.metaMes(tipo, chave, this.f.ano, m); if (x) { tem = true; val += x.val; kg += x.kg; } } return tem ? { val, kg } : null; },
 
+  /** Compatibilidade com telas por ano: 12 meses de um ano */
   mensal(ano, ign = {}) { const out = Array.from({ length: 12 }, () => ({ val: 0, kg: 0 }));
     for (const v of DB.vendas) if (v.y === ano && this.passa(v, ign)) { out[v.m - 1].val += v.val; out[v.m - 1].kg += v.kg; } return out; },
 
@@ -582,7 +624,7 @@ const ENG = {
     const inat = 120, fator = 1.5;
     const cad = DB.clientes.filter(c => String(c.STATUS || 'ATIVO').toUpperCase() !== 'INATIVO_CADASTRO' && (!f.vend || c.VENDEDOR === f.vend) && (!f.canal || c.CANAL === f.canal) && (!f.cli || c.CLIENTE === f.cli));
     const porCli = new Map();
-    for (const v of DB.vendas) { if (v.d > ref) continue; if (f.prod && v.prod !== f.prod) continue;
+    for (const v of DB.vendas) { if (!v.cc || v.d > ref) continue; if (f.prod && v.prod !== f.prod) continue;
       let o = porCli.get(v.cc); if (!o) porCli.set(v.cc, o = { datas: new Set(), val12: 0, ultima: '' }); o.datas.add(v.d); if (v.d > o.ultima) o.ultima = v.d;
       if (refT - new Date(v.d + 'T12:00:00').getTime() <= 365 * 864e5) o.val12 += v.val; }
     const lista = cad.map(c => {
@@ -600,12 +642,12 @@ const ENG = {
     });
     const cont = { comprou: 0, aguardando: 0, risco: 0, inativo: 0 }; lista.forEach(c => cont[c.st]++);
     const base = lista.length - cont.inativo;
-    return { lista, cont, total: lista.length, cobertura: base ? cont.comprou / base : null };
+    return { lista, cont, total: lista.length, cobertura: DB.temCli && base ? cont.comprou / base : null };
   },
   ativos90(refISO) { const refT = new Date(refISO + 'T12:00:00').getTime(); const s = new Set();
-    for (const v of DB.vendas) { const t = new Date(v.d + 'T12:00:00').getTime(); if (t <= refT && refT - t <= 90 * 864e5 && this.passa(v)) s.add(v.cc); } return s.size; },
+    for (const v of DB.vendas) { if (!v.cc) continue; const t = new Date(v.d + 'T12:00:00').getTime(); if (t <= refT && refT - t <= 90 * 864e5 && this.passa(v)) s.add(v.cc); } return s.size; },
 
-  agrupa(arr, key) { const m = new Map(); for (const v of arr) { const k = v[key]; let o = m.get(k); if (!o) m.set(k, o = { k, val: 0, kg: 0, peds: new Set(), clis: new Set(), vends: new Set() }); o.val += v.val; o.kg += v.kg; o.peds.add(v.ped); o.clis.add(v.cc); o.vends.add(v.vend); } return m; },
+  agrupa(arr, key) { const m = new Map(); for (const v of arr) { const k = v[key]; if (!k) continue; let o = m.get(k); if (!o) m.set(k, o = { k, val: 0, kg: 0, peds: new Set(), clis: new Set(), vends: new Set() }); o.val += v.val; o.kg += v.kg; if (v.ped) o.peds.add(v.ped); if (v.cc) o.clis.add(v.cc); if (v.vend) o.vends.add(v.vend); } return m; },
 
   classifica(gR, gK, novo) {
     if (novo) return ['Novo', 'p-vin'];
@@ -618,51 +660,58 @@ const ENG = {
 
   /** Pacote principal de indicadores */
   calc() {
-    const f = this.f, ano = f.ano, ant = ano - 1;
-    const cur = this.periodo(ano, 1, f.mFim), prev = this.periodo(ant, 1, f.mFim);
+    const f = this.f, ano = f.ano;
+    const cur = this.rows(0), prev = this.rows(1);
     const c = this.soma(cur), p = this.soma(prev);
-    const mensal = this.mensal(ano), mensalAnt = this.mensal(ant);
-    const serieMeta = this.metasSerie(); const metaAc = this.metaAcum(serieMeta);
-    const metaAno = serieMeta ? serieMeta.reduce((a, x) => a + x.val, 0) : null;
+    const mensal = this.serie(0), mensalAnt = this.serie(1);
+    const lbl = this.meses().map(([y, m]) => this.rotMes(y, m));
+    const nm = this.nivelMeta();
+    const serieMeta = nm ? this.metasSerieFor(nm[0], nm[1]) : null; const metaAc = this.metaAcum(serieMeta);
+    const mAno = nm ? this.metaAnoFor(nm[0], nm[1]) : null; const metaAno = mAno ? mAno.val || null : null;
     const fr = this.fracMes();
+    const realAno = this.soma(this.periodo(ano, 1, f.mFim)).val;
     const restantes = 12 - f.mFim + (1 - fr);
-    const falta = metaAno !== null ? Math.max(0, metaAno - c.val) : null;
+    const falta = metaAno !== null ? Math.max(0, metaAno - realAno) : null;
     const ritmo = metaAno !== null && restantes > 0 ? falta / restantes : null;
-    // média dos 3 últimos meses completos
-    const ultM = fr < 1 ? f.mFim - 1 : f.mFim; const ms = []; for (let m = ultM; m > ultM - 3; m--) { if (m >= 1) ms.push(mensal[m - 1].val); else ms.push(mensalAnt[m + 11].val); }
+    // média dos 3 últimos meses fechados
+    let y3 = ano, m3 = fr < 1 ? f.mFim - 1 : f.mFim; const ms = [];
+    for (let i = 0; i < 3; i++) { if (m3 < 1) { m3 += 12; y3--; } ms.push(this.mesTotal(y3, m3)); m3--; }
     const media3 = ms.reduce((a, b) => a + b, 0) / ms.length;
     const cart = this.carteira();
     const ref = this.ref(); const refAnt = (+ref.slice(0, 4) - 1) + ref.slice(4);
     const at = this.ativos90(ref), atAnt = this.ativos90(refAnt);
-    const cartAnt = (() => { const sv = { ...this.f }; this.f.ano = ant; const r = this.carteira(); this.f = sv; return r; })();
+    const cartAnt = (() => { const sv = { ...this.f }; this.f.ano = sv.ano - 1; this.f.aIni = sv.aIni - 1; const r = this.carteira(); this.f = sv; return r; })();
     // produtos
     const gp = this.agrupa(cur, 'prod'), gpA = this.agrupa(prev, 'prod');
     const delta = c.val - p.val;
     const prods = [...gp.values()].map(x => { const a = gpA.get(x.k) || { val: 0, kg: 0 }; const gR = a.val ? x.val / a.val - 1 : null, gK = a.kg ? x.kg / a.kg - 1 : null;
-      return { k: x.k, val: x.val, kg: x.kg, valA: a.val, kgA: a.kg, gR, gK, rkg: x.kg ? x.val / x.kg : 0, clis: x.clis.size, vends: x.vends.size, shV: c.val ? x.val / c.val : 0, shK: c.kg ? x.kg / c.kg : 0, contrib: delta ? (x.val - a.val) / delta : null, cls: this.classifica(gR ?? 0, gK ?? 0, !a.val) }; })
-      .sort((a, b) => b.val - a.val);
+      const mk = this.metaAcumFor('PRODUTO', x.k);
+      return { k: x.k, val: x.val, kg: x.kg, valA: a.val, kgA: a.kg, gR, gK, rkg: x.kg ? x.val / x.kg : 0, clis: x.clis.size, vends: x.vends.size, shV: c.val ? x.val / c.val : 0, shK: c.kg ? x.kg / c.kg : 0, contrib: delta ? (x.val - a.val) / delta : null, cls: p.val || p.kg ? this.classifica(gR ?? 0, gK ?? 0, !a.val && !a.kg) : ['—', 'p-neu'], metaKg: mk?.kg || null, atingKg: mk?.kg ? x.kg / mk.kg : null }; })
+      .sort((a, b) => b.val - a.val || b.kg - a.kg);
     // vendedores
-    const gv = this.agrupa(this.periodo(ano, 1, f.mFim, { vend: true }), 'vend'), gvA = this.agrupa(this.periodo(ant, 1, f.mFim, { vend: true }), 'vend');
+    const gv = this.agrupa(this.rows(0, { vend: true }), 'vend'), gvA = this.agrupa(this.rows(1, { vend: true }), 'vend');
     const vends = DB.listaVend.map(k => { const x = gv.get(k) || { val: 0, kg: 0, peds: new Set(), clis: new Set() }; const a = gvA.get(k) || { val: 0, kg: 0 };
-      const ms = this.metaAcum(this.metasSerie({ vend: k, cli: '', prod: '', canal: '' }));
-      return { k, val: x.val, kg: x.kg, meta: ms?.val ?? null, ating: ms?.val ? x.val / ms.val : null, gap: ms?.val ? x.val - ms.val : null, gR: a.val ? x.val / a.val - 1 : null, gK: a.kg ? x.kg / a.kg - 1 : null, ticket: x.peds.size ? x.val / x.peds.size : 0, peds: x.peds.size, clis: x.clis.size, rkg: x.kg ? x.val / x.kg : 0 }; })
-      .filter(v => v.val || v.meta).sort((a, b) => (b.ating ?? -1) - (a.ating ?? -1));
+      const ms = this.metaAcumFor('VENDEDOR', k); const real = DB.temVend;
+      return { k, val: x.val, kg: x.kg, meta: ms?.val ?? null, ating: real && ms?.val ? x.val / ms.val : null, gap: real && ms?.val ? x.val - ms.val : null, gR: a.val ? x.val / a.val - 1 : null, gK: a.kg ? x.kg / a.kg - 1 : null, ticket: x.peds.size ? x.val / x.peds.size : 0, peds: x.peds.size, clis: x.clis.size, rkg: x.kg ? x.val / x.kg : 0 }; })
+      .filter(v => v.val || v.meta).sort((a, b) => (b.ating ?? -1) - (a.ating ?? -1) || (b.meta ?? 0) - (a.meta ?? 0));
     // clientes (concentração)
     const gc = [...this.agrupa(cur, 'cli').values()].sort((a, b) => b.val - a.val);
     const top5 = gc.slice(0, 5).reduce((a, x) => a + x.val, 0), top10 = gc.slice(0, 10).reduce((a, x) => a + x.val, 0);
     const top3p = prods.slice(0, 3).reduce((a, x) => a + x.val, 0);
+    // atingimento só nos meses que têm meta (período pode começar antes das metas existirem)
+    const comMeta = serieMeta ? mensal.reduce((a, x, i) => serieMeta[i].val ? a + x.val : a, 0) : 0;
     return { c, p, gR: p.val ? c.val / p.val - 1 : null, gK: p.kg ? c.kg / p.kg - 1 : null, rkg: c.kg ? c.val / c.kg : 0, rkgA: p.kg ? p.val / p.kg : 0,
-      mensal, mensalAnt, serieMeta, metaAc, metaAno, ating: metaAc?.val ? c.val / metaAc.val : null, gap: metaAc ? c.val - metaAc.val : null,
+      mensal, mensalAnt, lbl, serieMeta, metaAc, metaAno, realAno, ating: metaAc?.val ? comMeta / metaAc.val : null, gap: metaAc?.val ? comMeta - metaAc.val : null,
       falta, restantes, ritmo, media3, acel: ritmo !== null && media3 ? ritmo / media3 - 1 : null, fr,
-      cart, cartAnt, at, atAnt, prods, vends, conc5: c.val ? top5 / c.val : 0, conc10: c.val ? top10 / c.val : 0, conc3p: c.val ? top3p / c.val : 0, nCli: gc.length };
+      cart, cartAnt, at, atAnt, prods, vends, conc5: c.val && gc.length ? top5 / c.val : null, conc10: c.val && gc.length ? top10 / c.val : null, conc3p: c.val ? top3p / c.val : 0, nCli: gc.length };
   },
 
   /** Pontos de atenção — regras matemáticas */
   atencao(k) {
     const out = [];
-    const nao = k.cart.cont.aguardando + k.cart.cont.risco;
+    const nao = DB.temCli ? k.cart.cont.aguardando + k.cart.cont.risco : 0;
     if (nao) out.push({ sev: 'bad', ic: 'clientes', h: `<b>${nao} clientes</b> da carteira ainda não compraram no mês.`, go: 'cobertura' });
-    if (k.cart.cont.risco) out.push({ sev: 'bad', ic: 'relogio', h: `<b>${k.cart.cont.risco} clientes</b> estão acima do período normal de recompra.`, go: 'cobertura' });
+    if (DB.temCli && k.cart.cont.risco) out.push({ sev: 'bad', ic: 'relogio', h: `<b>${k.cart.cont.risco} clientes</b> estão acima do período normal de recompra.`, go: 'cobertura' });
     const pior = k.vends.filter(v => v.ating !== null && v.ating < .9).sort((a, b) => a.ating - b.ating)[0];
     if (pior) out.push({ sev: 'bad', ic: 'vend', h: `Vendedor ${F.esc(pior.k)} está <b>${F.pct(1 - pior.ating, 0)} abaixo</b> da meta acumulada.`, go: 'vendedores' });
     const valor = k.prods.filter(p => p.gR !== null && p.gK !== null && p.gR > .1 && p.gR - p.gK > .1 && p.val > k.c.val * .03).sort((a, b) => (b.gR - b.gK) - (a.gR - a.gK))[0];
@@ -670,6 +719,8 @@ const ENG = {
     const top = k.prods.filter(p => p.contrib !== null && p.contrib > 0).sort((a, b) => b.contrib - a.contrib).slice(0, 4);
     if (top.length >= 3 && k.c.val > k.p.val) { const s = top.reduce((a, x) => a + x.contrib, 0); out.push({ sev: 'warn', ic: 'prod', h: `<b>${top.length} produtos</b> respondem por ${F.pct(s, 0)} do crescimento.`, go: 'produtos' }); }
     if (k.acel !== null && k.acel > .03) out.push({ sev: 'bad', ic: 'vel', h: `Ritmo necessário está <b>${F.pct(k.acel, 0)} acima</b> da média dos últimos 3 meses.`, go: 'objetivo' });
+    const abK = k.prods.filter(p => p.atingKg !== null && p.atingKg < .9);
+    if (abK.length) out.push({ sev: 'bad', ic: 'caixa', h: `<b>${abK.length} produtos</b> estão abaixo de 90% da meta em kg.`, go: 'produtos' });
     if (k.conc5 > .4) out.push({ sev: 'warn', ic: 'pizza', h: `Top 5 clientes concentram <b>${F.pct(k.conc5, 0)}</b> do faturamento.`, go: 'clientes' });
     const queda = k.prods.filter(p => p.gR !== null && p.gR < -.05 && p.valA > k.p.val * .02).sort((a, b) => a.gR - b.gR)[0];
     if (queda) out.push({ sev: 'bad', ic: 'prod', h: `${F.esc(queda.k)} caiu <b>${F.var(queda.gR, 0)}</b> em R$ contra o ano anterior.`, go: 'produtos' });
@@ -695,14 +746,14 @@ const CH = {
     ctx.save(); ctx.font = '700 11px Manrope, sans-serif'; const w = ctx.measureText(txt).width + 14, h = 20, x = Math.min(pt.x - w / 2, ch.chartArea.right - w + 6), y = ds.pinDown ? pt.y + 10 : pt.y - h - 8;
     ctx.fillStyle = ds.pinBg; ctx.beginPath(); ctx.roundRect(x, y, w, h, 5); ctx.fill(); ctx.fillStyle = '#fff'; ctx.textBaseline = 'middle'; ctx.fillText(txt, x + 7, y + h / 2); ctx.restore(); }); } },
   acumulado(el, k, altura) {
-    const fm = ENG.f.mFim; const lbl = MESES.slice(0, fm);
-    let a = 0; const real = k.mensal.slice(0, fm).map(x => (a += x.val));
-    let b = 0; const meta = k.serieMeta ? k.serieMeta.slice(0, fm).map(x => (b += x.val)) : null;
-    let c = 0; const ant = k.mensalAnt.slice(0, fm).map(x => (c += x.val));
+    const lbl = k.lbl;
+    let a = 0; const real = k.mensal.map(x => (a += x.val));
+    let b = 0; const meta = k.serieMeta && k.serieMeta.some(x => x.val) ? k.serieMeta.map(x => (b += x.val)) : null;
+    let c = 0; const ant = k.mensalAnt.map(x => (c += x.val));
     const vin = this.css('--vinho'), ch = this.css('--champ');
     const ds = [{ label: 'Realizado acumulado', data: real, borderColor: vin, backgroundColor: ctx => { const g = ctx.chart.ctx.createLinearGradient(0, 0, 0, altura || 240); g.addColorStop(0, 'rgba(122,46,54,.22)'); g.addColorStop(1, 'rgba(122,46,54,0)'); return g; }, fill: true, borderWidth: 2.6, pointRadius: 3.5, pointBackgroundColor: vin, tension: .25, pin: v => F.brlC(v), pinBg: vin }];
     if (meta) ds.push({ label: 'Meta acumulada', data: meta, borderColor: ch, borderDash: [6, 5], borderWidth: 2, pointRadius: 3, pointBackgroundColor: ch, tension: .25, fill: false, pin: v => F.brlC(v), pinBg: ch, pinDown: meta[meta.length - 1] <= real[real.length - 1] });
-    else ds.push({ label: `${ENG.f.ano - 1} acumulado`, data: ant, borderColor: ch, borderDash: [6, 5], borderWidth: 2, pointRadius: 2, tension: .25, fill: false, pin: v => F.brlC(v), pinBg: ch });
+    else ds.push({ label: `${ENG.antLbl()} acumulado`, data: ant, borderColor: ch, borderDash: [6, 5], borderWidth: 2, pointRadius: 2, tension: .25, fill: false, pin: v => F.brlC(v), pinBg: ch });
     return this.novo(el, { type: 'line', data: { labels: lbl, datasets: ds }, plugins: [this.pinFinal],
       options: { layout: { padding: { top: 28, right: 12 } }, interaction: { mode: 'index', intersect: false }, plugins: { pinFinal: { on: true }, tooltip: { callbacks: { label: t => ` ${t.dataset.label}: ${F.brlC(t.raw)}` } } },
         scales: { y: { beginAtZero: true, ticks: { callback: v => F.brlC(v), maxTicksLimit: 5 }, grid: { color: this.css('--linha') } }, x: { grid: { display: false } } } } });
@@ -740,7 +791,10 @@ const UI = {
     document.getElementById('side').addEventListener('click', e => { if (e.target.closest('a')) UI.menu(false); });
     window.addEventListener('hashchange', () => this.rota());
     ['vend','cli','prod','canal'].forEach(k => document.getElementById('f-' + k).addEventListener('change', e => { ENG.f[k] = e.target.value; this.salvarFiltros(); this.render(); }));
-    document.getElementById('f-per').addEventListener('change', e => { const [a, m] = e.target.value.split('-').map(Number); ENG.f.ano = a; ENG.f.mFim = m; this.salvarFiltros(); this.render(); });
+    const per = () => { let [a1, m1] = document.getElementById('f-de').value.split('-').map(Number), [a2, m2] = document.getElementById('f-ate').value.split('-').map(Number);
+      if (a1 * 12 + m1 > a2 * 12 + m2) [a1, m1, a2, m2] = [a2, m2, a1, m1];
+      Object.assign(ENG.f, { aIni: a1, mIni: m1, ano: a2, mFim: m2 }); this.salvarFiltros(); this.filtros(); this.render(); };
+    document.getElementById('f-de').addEventListener('change', per); document.getElementById('f-ate').addEventListener('change', per);
     let rs; window.addEventListener('resize', () => { clearTimeout(rs); rs = setTimeout(() => CH.inst.forEach(c => c.resize()), 150); });
   },
   menu(on) { document.getElementById('side').classList.toggle('open', on); document.getElementById('overlay').innerHTML = on ? '<div class="scrim" style="z-index:45" onclick="UI.menu(false)"></div>' : ''; },
@@ -752,8 +806,11 @@ const UI = {
     document.getElementById('f-cli').innerHTML = opt(DB.listaCli, ENG.f.cli);
     document.getElementById('f-prod').innerHTML = opt(DB.listaProd, ENG.f.prod);
     document.getElementById('f-canal').innerHTML = opt(DB.listaCanal, ENG.f.canal);
-    const per = []; DB.anos.forEach(a => { const ult = a === new Date().getFullYear() ? new Date().getMonth() + 1 : 12; for (let m = ult; m >= 1; m--) per.push([`${a}-${m}`, `Jan a ${MESES[m - 1]} / ${a}`]); });
-    document.getElementById('f-per').innerHTML = per.map(p => `<option value="${p[0]}" ${p[0] === ENG.f.ano + '-' + ENG.f.mFim ? 'selected' : ''}>${p[1]}</option>`).join('');
+    const per = []; const hj = new Date(); const anos = [...new Set([...DB.anos, hj.getFullYear()])].sort((a, b) => b - a);
+    anos.forEach(a => { const ult = a === hj.getFullYear() ? hj.getMonth() + 1 : 12; for (let m = ult; m >= 1; m--) per.push([`${a}-${m}`, `${MESES[m - 1]}/${a}`]); });
+    const opts = sel => per.map(p => `<option value="${p[0]}" ${p[0] === sel ? 'selected' : ''}>${p[1]}</option>`).join('');
+    document.getElementById('f-de').innerHTML = opts(ENG.f.aIni + '-' + ENG.f.mIni);
+    document.getElementById('f-ate').innerHTML = opts(ENG.f.ano + '-' + ENG.f.mFim);
   },
   salvarFiltros() { CFG.set({ filtros: ENG.f }); },
   render() {
@@ -762,10 +819,11 @@ const UI = {
     document.querySelectorAll('#nav a, #mnav a').forEach(a => a.classList.toggle('on', a.dataset.v === this.view));
     document.getElementById('titulo').innerHTML = F.esc(v.t) + (CFG.demo ? '<span class="demo-pill" title="Dados de exemplo. Conecte a base em Configurações.">Dados de exemplo</span>' : '');
     const escopo = [ENG.f.vend && 'Vendedor ' + ENG.f.vend, ENG.f.cli, ENG.f.prod, ENG.f.canal].filter(Boolean).join(' · ');
-    document.getElementById('subtitulo').textContent = `${v.s || 'Performance Comercial'} • Jan a ${MESES[ENG.f.mFim - 1]} / ${ENG.f.ano}${escopo ? ' • ' + escopo : ''}`;
+    document.getElementById('subtitulo').textContent = `${v.s || 'Performance Comercial'} • ${ENG.rotulo()}${escopo ? ' • ' + escopo : ''}`;
     document.getElementById('filtros').style.visibility = v.semFiltro ? 'hidden' : '';
     const el = document.getElementById('view');
-    try { el.innerHTML = v.html(); v.pos && v.pos(); } catch (e) { console.error(e); el.innerHTML = `<div class="card"><h3>Não foi possível montar esta tela</h3><p class="help">${F.esc(e.message)}</p></div>`; }
+    const aviso = !v.semFiltro && DB.resumo && !DB.temCli ? `<div class="alerta" style="margin:0 0 16px;background:var(--warn-bg);color:var(--txt)">${ic('alerta', 'style="color:var(--warn)"')}<div><b>Realizado vindo do planejamento.</b> Kg por produto e R$ total do mês vêm da planilha de planejamento; o R$ de cada produto é estimado pelo kg. Clientes, vendedores e cobertura aparecem quando entrar o relatório de vendas por item.</div></div>` : '';
+    try { el.innerHTML = aviso + v.html(); v.pos && v.pos(); } catch (e) { console.error(e); el.innerHTML = `<div class="card"><h3>Não foi possível montar esta tela</h3><p class="help">${F.esc(e.message)}</p></div>`; }
     document.getElementById('rod-info').textContent = `Raffinée Analytics • v${APP_VERSION} • ${DB.fonte}`;
     document.getElementById('ver-side').textContent = `v${APP_VERSION}`;
   },
@@ -788,7 +846,7 @@ const UI = {
   ordena(id, i) { const o = (this._ord ||= {})[id] || { i: 1, d: -1 }; this._ord[id] = { i, d: o.i === i ? -o.d : -1 }; this.render(); }
 };
 const varCell = v => `<span class="${clsVar(v)}">${F.var(v)}</span>`;
-const pillAting = p => p === null ? '<span class="pill p-neu">sem meta</span>' : `<span class="pill ${p >= 1 ? 'p-ok' : p >= .9 ? 'p-warn' : 'p-bad'}">${F.pct(p)}</span>`;
+const pillAting = (p, semReal) => semReal ? '<span class="pill p-neu">aguarda realizado</span>' : p === null ? '<span class="pill p-neu">sem meta</span>' : `<span class="pill ${p >= 1 ? 'p-ok' : p >= .9 ? 'p-warn' : 'p-bad'}">${F.pct(p)}</span>`;
 const miniBar = (p, max = 1.2) => { const w = Math.max(0, Math.min(1, (p || 0) / max)) * 100; const c = p >= 1 ? 'var(--ok)' : p >= .9 ? 'var(--warn)' : 'var(--bad)'; return `<span class="mini"><i style="width:${w}%;background:${c}"></i></span>`; };
 const ST = { comprou: ['Comprou no mês', 'p-ok', '#5A1E24'], aguardando: ['Ainda não comprou', 'p-warn', '#B8905A'], risco: ['Em risco', 'p-bad', '#D9A13B'], inativo: ['Inativo', 'p-neu', '#E0564F'] };
 
@@ -803,32 +861,33 @@ VIEWS.visao = { t: 'Visão Executiva',
     const tile = (icn, lb, v, d, sid) => `<div class="card kpi">${''}<div class="lb">${ic(icn)}<span>${lb}</span></div><div class="v">${v}</div><div class="d">${d}</div><div class="spark"><canvas id="${sid}"></canvas></div></div>`;
     const cobA = k.cartAnt.cobertura;
     const tiles = [
-      tile('moedas', 'Faturamento<br>acumulado', F.brlC(k.c.val).replace(/ (mi|mil)$/, ' <small>$1</small>'), `<span class="${clsVar(k.gR)}">${seta(k.gR)} ${F.var(k.gR)}</span> vs. ${ENG.f.ano - 1}`, 'sp1'),
+      tile('moedas', 'Faturamento<br>acumulado', F.brlC(k.c.val).replace(/ (mi|mil)$/, ' <small>$1</small>'), `<span class="${clsVar(k.gR)}">${seta(k.gR)} ${F.var(k.gR)}</span> vs. ${ENG.antLbl()}`, 'sp1'),
       tile('alvo', 'Atingimento<br>da meta', F.pct(k.ating), k.ating === null ? 'sem meta cadastrada' : `<span class="${k.gap >= 0 ? 'up' : 'dn'}">${k.gap >= 0 ? '↑' : '↓'} ${F.brlC(k.gap)}</span> vs. meta`, 'sp2'),
       tile('cresc', 'Crescimento<br>YoY', `<span class="${clsVar(k.gR)}">${F.var(k.gR)}</span>`, `em kg: <span class="${clsVar(k.gK)}">${F.var(k.gK)}</span>`, 'sp3'),
-      tile('caixa', 'Volume<br>acumulado', F.kg(k.c.kg).replace(/ (t|kg)$/, ' <small>$1</small>'), `<span class="${clsVar(k.gK)}">${seta(k.gK)} ${F.var(k.gK)}</span> vs. ${ENG.f.ano - 1}`, 'sp4'),
-      tile('clientes', 'Clientes<br>ativos (90 dias)', F.int(k.at), `<span class="${clsVar(k.atAnt ? k.at / k.atAnt - 1 : null)}">${seta(k.at - k.atAnt)} ${F.var(k.atAnt ? k.at / k.atAnt - 1 : null)}</span> vs. ${ENG.f.ano - 1}`, 'sp5'),
-      tile('pizza', 'Cobertura da<br>carteira no mês', F.pct(k.cart.cobertura), `<span class="${clsVar(cobA !== null && k.cart.cobertura !== null ? k.cart.cobertura - cobA : null)}">${F.pp(cobA !== null && k.cart.cobertura !== null ? k.cart.cobertura - cobA : null)}</span> vs. ${ENG.f.ano - 1}`, 'sp6'),
-      tile('tag', 'R$/Kg<br>médio', F.brl2(k.rkg), `<span class="${clsVar(k.rkgA ? k.rkg / k.rkgA - 1 : null)}">${seta(k.rkg - k.rkgA)} ${F.var(k.rkgA ? k.rkg / k.rkgA - 1 : null)}</span> vs. ${ENG.f.ano - 1}`, 'sp7')
+      tile('caixa', 'Volume<br>acumulado', F.kg(k.c.kg).replace(/ (t|kg)$/, ' <small>$1</small>'), `<span class="${clsVar(k.gK)}">${seta(k.gK)} ${F.var(k.gK)}</span> vs. ${ENG.antLbl()}`, 'sp4'),
+      DB.temCli ? tile('clientes', 'Clientes<br>ativos (90 dias)', F.int(k.at), `<span class="${clsVar(k.atAnt ? k.at / k.atAnt - 1 : null)}">${seta(k.at - k.atAnt)} ${F.var(k.atAnt ? k.at / k.atAnt - 1 : null)}</span> vs. ${ENG.antLbl()}`, 'sp5') : tile('clientes', 'Clientes<br>ativos (90 dias)', '—', 'aguarda vendas por cliente', 'sp5'),
+      DB.temCli ? tile('pizza', 'Cobertura da<br>carteira no mês', F.pct(k.cart.cobertura), `<span class="${clsVar(cobA !== null && k.cart.cobertura !== null ? k.cart.cobertura - cobA : null)}">${F.pp(cobA !== null && k.cart.cobertura !== null ? k.cart.cobertura - cobA : null)}</span> vs. ${ENG.antLbl()}`, 'sp6') : tile('pizza', 'Cobertura da<br>carteira no mês', '—', `${F.int(DB.clientes.length)} clientes na carteira`, 'sp6'),
+      tile('tag', 'R$/Kg<br>médio', F.brl2(k.rkg), `<span class="${clsVar(k.rkgA ? k.rkg / k.rkgA - 1 : null)}">${seta(k.rkg - k.rkgA)} ${F.var(k.rkgA ? k.rkg / k.rkgA - 1 : null)}</span> vs. ${ENG.antLbl()}`, 'sp7')
     ].join('');
     const r = k.ritmo;
     const ritmoHtml = k.metaAno === null ? `<p class="help">Cadastre metas em <a href="#metas">Planejamento / Metas</a> para calcular o ritmo necessário.</p>` : `
-      <div class="kv"><div>Meta anual</div><div><b>${F.brlC(k.metaAno)}</b></div><div>Realizado</div><div><b>${F.brlC(k.c.val)}</b></div>
+      <div class="kv"><div>Meta ${ENG.f.ano}</div><div><b>${F.brlC(k.metaAno)}</b></div><div>Realizado ${ENG.f.ano}</div><div><b>${F.brlC(k.realAno)}</b></div>
       <div class="hl">Falta vender</div><div class="hl"><b>${F.brlC(k.falta)}</b></div><div>Meses restantes</div><div><b>${nf(1).format(k.restantes).replace(',0', '')}</b></div></div>
       <div class="ritmo-big"><span class="t">Ritmo necessário</span><b>${F.brlC(r)}/mês</b></div>
       <div class="ritmo-big" style="padding-top:0"><span>Média últimos 3 meses</span><span style="font-size:18px;font-weight:700">${F.brlC(k.media3)}/mês</span></div>
       ${k.acel > 0 ? `<div class="alerta">${ic('seta')}<div><b>Precisa acelerar ${F.pct(k.acel, 0)}</b><br>em relação à média dos últimos 3 meses.</div></div>` : `<div class="alerta ok">${ic('check')}<div><b>No ritmo</b><br>a média recente já cobre o necessário para bater a meta anual.</div></div>`}`;
     const cc = k.cart.cont;
-    const donut = `<div class="donut-wrap"><div class="donut"><canvas id="dn"></canvas><div class="c"><b>${k.cart.total}</b><span>clientes</span></div></div>
+    const donut = !DB.temCli ? `<p class="help">Aparece quando entrar o relatório de vendas por cliente. Carteira cadastrada: <b>${F.int(DB.clientes.length)} clientes</b>.</p><button class="btn sm" onclick="UI.go('lancamentos')">${ic('up')}Importar vendas</button>` : `<div class="donut-wrap"><div class="donut"><canvas id="dn"></canvas><div class="c"><b>${k.cart.total}</b><span>clientes</span></div></div>
       <div class="dleg">${Object.entries(ST).map(([s, [n, , cor]]) => `<button onclick="VIEWS.cobertura.abre('${s}')"><i style="background:${cor}"></i><span>${n.replace('Ainda não comprou', 'Ainda não compraram').replace('Comprou no mês', 'Compraram')}<b>${cc[s]} (${F.pct(k.cart.total ? cc[s] / k.cart.total : 0)})</b></span></button>`).join('')}</div></div>`;
-    const topV = k.vends.slice(0, 6);
-    const vbars = topV.map(v => { const w = Math.min(1, (v.ating || 0) / 1.25) * 100; const cor = v.ating >= 1 ? 'var(--ok)' : v.ating >= .9 ? 'var(--champ-2)' : 'var(--bad)';
+    const topV = k.vends.slice(0, 7);
+    const mxMeta = Math.max(1, ...topV.map(v => v.meta || 0));
+    const vbars = !DB.temVend ? topV.map(v => `<div class="bar click" onclick="VIEWS.vendedores.abre('${F.esc(v.k).replace(/'/g, "\\'")}')"><span class="nm">${F.esc(v.k)}</span><span class="tr"><span class="fi" style="display:block;width:${(v.meta || 0) / mxMeta * 100}%;background:var(--bege)"></span></span><span class="vl">${F.brlC(v.meta || 0)}</span></div>`).join('') + '<p class="help" style="margin:4px 0 0">Meta acumulada. O realizado por vendedor entra com o relatório de vendas.</p>' : topV.map(v => { const w = Math.min(1, (v.ating || 0) / 1.25) * 100; const cor = v.ating >= 1 ? 'var(--ok)' : v.ating >= .9 ? 'var(--champ-2)' : 'var(--bad)';
       return `<div class="bar click" onclick="VIEWS.vendedores.abre('${F.esc(v.k).replace(/'/g, "\\'")}')"><span class="nm">${F.esc(v.k)}</span><span class="tr"><span class="fi" style="display:block;width:${w}%;background:${cor}"></span></span><span class="vl ${v.ating >= 1 ? 'up' : v.ating >= .9 ? 'nt' : 'dn'}">${F.pct(v.ating, 0)}</span></div>`; }).join('');
     const at = ENG.atencao(k);
     return `
     <div class="kpis">${tiles}</div>
     <div class="row2">
-      <div class="card"><h3>${ic('visao')}Objetivo x Realizado acumulado<span class="dir leg"><span><i class="d"></i>${k.serieMeta ? 'Meta acumulada' : (ENG.f.ano - 1) + ' acumulado'}</span><span><i></i>Realizado acumulado</span></span></h3><div class="chart-box" style="height:250px"><canvas id="acum"></canvas></div></div>
+      <div class="card"><h3>${ic('visao')}Objetivo x Realizado acumulado<span class="dir leg"><span><i class="d"></i>${k.serieMeta && k.serieMeta.some(x => x.val) ? 'Meta acumulada' : ENG.antLbl() + ' acumulado'}</span><span><i></i>Realizado acumulado</span></span></h3><div class="chart-box" style="height:250px"><canvas id="acum"></canvas></div></div>
       <div class="card"><h3>${ic('vel')}Ritmo Necessário</h3>${ritmoHtml}</div>
     </div>
     <div class="row4">
@@ -841,20 +900,20 @@ VIEWS.visao = { t: 'Visão Executiva',
       <div class="atencao">${at.slice(0, 8).map(a => `<button class="at ${a.sev === 'ok' ? 'ok' : a.sev === 'warn' ? 'warn' : ''}" onclick="UI.go('${a.go}')"><span class="ic">${ic(a.ic)}</span><span>${a.h}</span><span class="go">›</span></button>`).join('') || '<p class="help">Nenhum ponto de atenção no período.</p>'}</div></div>`;
   },
   pos() {
-    const k = K, fm = ENG.f.mFim;
-    const serie = k.mensal.slice(0, fm);
+    const k = K;
+    const serie = k.mensal;
     CH.spark(document.getElementById('sp1'), serie.map(x => x.val));
     let a = 0, b = 0; CH.spark(document.getElementById('sp2'), serie.map((x, i) => { a += x.val; b += k.serieMeta ? k.serieMeta[i].val : 0; return b ? a / b : 0; }));
     CH.spark(document.getElementById('sp3'), serie.map((x, i) => k.mensalAnt[i].val ? x.val / k.mensalAnt[i].val - 1 : 0), CH.css('--ok'));
     CH.spark(document.getElementById('sp4'), serie.map(x => x.kg));
-    const ativosM = []; for (let m = 1; m <= fm; m++) { const d = `${ENG.f.ano}-${String(m).padStart(2, '0')}-${String(ENG.diasMes(ENG.f.ano, m)).padStart(2, '0')}`; ativosM.push(ENG.ativos90(d > ENG.ref() ? ENG.ref() : d)); }
+    const ativosM = [], cobM = []; if (DB.temCli) { const sv = { ...ENG.f }; ENG.meses().forEach(([y, m]) => { const d = `${y}-${String(m).padStart(2, '0')}-${String(ENG.diasMes(y, m)).padStart(2, '0')}`; ativosM.push(ENG.ativos90(d > ENG.ref() ? ENG.ref() : d)); ENG.f.ano = y; ENG.f.mFim = m; cobM.push(ENG.carteira().cobertura || 0); ENG.f = { ...sv }; }); }
     CH.spark(document.getElementById('sp5'), ativosM);
-    const cobM = []; const sv = ENG.f.mFim; for (let m = 1; m <= fm; m++) { ENG.f.mFim = m; cobM.push(ENG.carteira().cobertura || 0); } ENG.f.mFim = sv;
+
     CH.spark(document.getElementById('sp6'), cobM);
     CH.spark(document.getElementById('sp7'), serie.map(x => x.kg ? x.val / x.kg : null));
     CH.acumulado(document.getElementById('acum'), k, 250);
     const cc = k.cart.cont;
-    CH.novo(document.getElementById('dn'), { type: 'doughnut', data: { labels: Object.values(ST).map(s => s[0]), datasets: [{ data: [cc.comprou, cc.aguardando, cc.risco, cc.inativo], backgroundColor: Object.values(ST).map(s => s[2]), borderWidth: 2, borderColor: CH.css('--card') }] }, options: { cutout: '64%', onClick: (e, el) => el[0] && VIEWS.cobertura.abre(Object.keys(ST)[el[0].index]) } });
+    if (DB.temCli) CH.novo(document.getElementById('dn'), { type: 'doughnut', data: { labels: Object.values(ST).map(s => s[0]), datasets: [{ data: [cc.comprou, cc.aguardando, cc.risco, cc.inativo], backgroundColor: Object.values(ST).map(s => s[2]), borderWidth: 2, borderColor: CH.css('--card') }] }, options: { cutout: '64%', onClick: (e, el) => el[0] && VIEWS.cobertura.abre(Object.keys(ST)[el[0].index]) } });
     const tp = m => { const arr = [...k.prods].sort((x, y) => y[m] - x[m]).slice(0, 6); const mx = arr[0]?.[m] || 1;
       document.getElementById('tp').innerHTML = arr.map(p => `<div class="bar click" onclick="VIEWS.produtos.abre('${F.esc(p.k).replace(/'/g, "\\'")}')"><span class="nm" title="${F.esc(p.k)}">${F.esc(p.k)}</span><span class="tr"><span class="fi" style="display:block;width:${p[m] / mx * 100}%;opacity:${.55 + .45 * p[m] / mx}"></span></span><span class="vl">${m === 'val' ? F.brlC(p.val) : F.kg(p.kg)}</span></div>`).join(''); };
     tp('val');
@@ -870,31 +929,35 @@ VIEWS.objetivo = { t: 'Objetivo x Realizado', dim: 'vend',
     const dims = { vend: 'Vendedor', cli: 'Cliente', prod: 'Produto' };
     const tipo = { vend: 'VENDEDOR', cli: 'CLIENTE', prod: 'PRODUTO' }[d];
     const campo = { vend: 'vend', cli: 'cli', prod: 'prod' }[d];
-    const cur = ENG.periodo(ENG.f.ano, 1, ENG.f.mFim, { [campo]: true });
+    const cur = ENG.rows(0, { [campo]: true });
     const g = ENG.agrupa(cur, campo);
-    const chaves = new Set([...g.keys(), ...DB.metas.filter(m => m.ano === ENG.f.ano && m.tipo === tipo).map(m => m.chave)]);
+    const semReal = (d === 'vend' && !DB.temVend) || (d === 'cli' && !DB.temCli);
+    const chaves = new Set([...g.keys(), ...DB.metas.filter(m => m.ano >= ENG.f.aIni && m.ano <= ENG.f.ano && m.tipo === tipo).map(m => ENG.nomeChave(tipo, m.chave))]);
     const linhas = [...chaves].filter(Boolean).filter(x => !ENG.f[campo] || x === ENG.f[campo]).map(ch => { const x = g.get(ch) || { val: 0, kg: 0 };
-      const ms = ENG.metaAcum((() => { const o = []; let t = false; for (let m = 1; m <= 12; m++) { const r = ENG.metaMes(tipo, ch, ENG.f.ano, m); if (r) t = true; o.push(r || { val: 0, kg: 0 }); } return t ? o : null; })());
-      const at = ms?.val ? x.val / ms.val : null, atk = ms?.kg ? x.kg / ms.kg : null;
-      return { v: [ch, ms?.val ?? -1, x.val, at ?? -1, ms ? x.val - ms.val : -1e15, ms?.kg ?? -1, x.kg, atk ?? -1], h: [F.esc(ch), ms ? F.brl(ms.val) : '—', F.brl(x.val), miniBar(at) + pillAting(at), ms ? `<span class="${x.val - ms.val >= 0 ? 'up' : 'dn'}">${F.brl(x.val - ms.val)}</span>` : '—', ms ? F.kgN(ms.kg) : '—', F.kgN(x.kg), pillAting(atk)],
+      const ms0 = ENG.metaAcumFor(tipo, ch); const ms = ms0 && (ms0.val || ms0.kg) ? ms0 : null;
+      const mv = ms?.val || null, mk = ms?.kg || null;
+      const at = !semReal && mv ? x.val / mv : null, atk = !semReal && mk ? x.kg / mk : null;
+      return { v: [ch, mv ?? -1, x.val, at ?? -1, !semReal && mv ? x.val - mv : -1e15, mk ?? -1, x.kg, atk ?? -1], h: [F.esc(ch), mv ? F.brl(mv) : '—', semReal ? '—' : F.brl(x.val), mv ? miniBar(at) + pillAting(at, semReal) : '—', !semReal && mv ? `<span class="${x.val - mv >= 0 ? 'up' : 'dn'}">${F.brl(x.val - mv)}</span>` : '—', mk ? F.kgN(mk) : '—', semReal ? '—' : F.kgN(x.kg), mk ? pillAting(atk, semReal) : '—'],
         click: d === 'vend' ? `VIEWS.vendedores.abre('${F.esc(ch).replace(/'/g, "\\'")}')` : d === 'cli' ? `VIEWS.clientes.abreNome('${F.esc(ch).replace(/'/g, "\\'")}')` : `VIEWS.produtos.abre('${F.esc(ch).replace(/'/g, "\\'")}')` }; });
-    const semMeta = linhas.filter(l => l.v[1] < 0).length;
+    const semMeta = linhas.filter(l => l.v[1] < 0 && l.v[5] < 0).length;
     const mt = k.serieMeta; const fr = k.fr;
-    const mensalRows = MESES.map((m, i) => { const real = k.mensal[i].val, meta = mt ? mt[i].val : null; const fut = i + 1 > ENG.f.mFim; const parcial = i + 1 === ENG.f.mFim && fr < 1;
+    const mensalRows = k.lbl.map((m, i) => { const real = k.mensal[i].val, meta = mt && mt[i].val ? mt[i].val : null; const fut = false; const parcial = i === k.lbl.length - 1 && fr < 1;
       const mp = meta !== null ? meta * (parcial ? fr : 1) : null;
-      return `<tr><td>${m}${parcial ? ' <span class="pill p-neu">parcial</span>' : ''}</td><td class="n">${meta !== null ? F.brl(meta) : '—'}</td><td class="n">${fut ? '—' : F.brl(real)}</td><td class="n">${fut || !mp ? '—' : pillAting(real / mp)}</td><td class="n">${fut ? '—' : F.brl(k.mensalAnt[i].val)}</td><td class="n">${fut ? '—' : varCell(k.mensalAnt[i].val ? real / k.mensalAnt[i].val - 1 : null)}</td><td class="n">${fut ? '—' : F.kgN(k.mensal[i].kg)}</td></tr>`; }).join('');
+      return `<tr><td>${m}${parcial ? ' <span class="pill p-neu">parcial</span>' : ''}</td><td class="n">${meta !== null ? F.brl(meta) : '—'}</td><td class="n">${fut ? '—' : F.brl(real)}</td><td class="n">${fut || !mp ? '—' : pillAting(real / mp)}</td><td class="n">${k.mensalAnt[i].val ? F.brl(k.mensalAnt[i].val) : '—'}</td><td class="n">${fut ? '—' : varCell(k.mensalAnt[i].val ? real / k.mensalAnt[i].val - 1 : null)}</td><td class="n">${F.kgN(k.mensal[i].kg)}</td><td class="n">${mt && mt[i].kg ? F.kgN(mt[i].kg) : '—'}</td><td class="n">${mt && mt[i].kg ? pillAting(k.mensal[i].kg / (mt[i].kg * (parcial ? fr : 1))) : '—'}</td></tr>`; }).join('');
     return `
     <div class="row2">
       <div class="card"><h3>${ic('visao')}Meta acumulada x realizado acumulado<span class="dir leg"><span><i class="d"></i>${k.serieMeta ? 'Meta' : 'Ano anterior'}</span><span><i></i>Realizado</span></span></h3><div class="chart-box" style="height:280px"><canvas id="acum"></canvas></div></div>
       <div class="card" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px"><h3 style="align-self:flex-start">${ic('vel')}Atingimento acumulado</h3>
-        ${gauge(k.ating, k.metaAc ? `Meta até ${F.data(ENG.ref())}: ${F.brlC(k.metaAc.val)}` : 'Sem meta para o filtro atual')}
-        <div class="mk" style="width:100%;margin-top:8px"><div class="card"><div class="l">Realizado</div><div class="v">${F.brlC(k.c.val)}</div></div><div class="card"><div class="l">Gap</div><div class="v ${k.gap >= 0 ? 'up' : 'dn'}">${k.gap === null ? '—' : F.brlC(k.gap)}</div></div><div class="card"><div class="l">Kg x meta</div><div class="v">${k.metaAc?.kg ? F.pct(k.c.kg / k.metaAc.kg) : '—'}</div></div></div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;width:100%">
+          <div>${gauge(k.ating, k.metaAc?.val ? `em R$ · meta ${F.brlC(k.metaAc.val)}` : 'sem meta em R$')}</div>
+          <div>${gauge(k.metaAc?.kg ? k.c.kg / k.metaAc.kg : null, k.metaAc?.kg ? `em kg · meta ${F.kg(k.metaAc.kg)}` : 'sem meta em kg')}</div></div>
+        <div class="mk" style="width:100%;margin-top:8px"><div class="card"><div class="l">Realizado</div><div class="v">${F.brlC(k.c.val)}</div></div><div class="card"><div class="l">Gap</div><div class="v ${k.gap >= 0 ? 'up' : 'dn'}">${k.gap === null ? '—' : F.brlC(k.gap)}</div></div><div class="card"><div class="l">Kg realizado</div><div class="v">${F.kg(k.c.kg)}</div></div></div>
         ${fr < 1 ? `<p class="help" style="margin:4px 0 0">A meta de ${MESES[ENG.f.mFim - 1]} entra proporcional aos dias já corridos (${F.pct(fr, 0)} do mês).</p>` : ''}</div>
     </div>
     <div class="card"><h3>${ic('alvo')}Objetivo x Realizado por ${dims[d].toLowerCase()}<span class="dir"><span class="seg">${Object.entries(dims).map(([x, n]) => `<button class="${x === d ? 'on' : ''}" onclick="VIEWS.objetivo.dim='${x}';UI.render()">${n}</button>`).join('')}</span></span></h3>
       ${semMeta ? `<p class="help" style="margin:-4px 0 10px">${semMeta} ${dims[d].toLowerCase()}(s) sem meta cadastrada aparecem com “sem meta”.</p>` : ''}
       ${UI.tabela('t-obj', [{ t: dims[d] }, { t: 'Meta R$', n: 1 }, { t: 'Realizado R$', n: 1 }, { t: 'Ating. R$', n: 1 }, { t: 'Gap R$', n: 1 }, { t: 'Meta kg', n: 1 }, { t: 'Realizado kg', n: 1 }, { t: 'Ating. kg', n: 1 }], linhas, { ordem: 2 })}</div>
-    <div class="card"><h3>${ic('meta')}Mês a mês</h3><div class="tbl-wrap"><table class="t"><thead><tr><th>Mês</th><th class="n">Meta</th><th class="n">Realizado</th><th class="n">Ating.</th><th class="n">${ENG.f.ano - 1}</th><th class="n">Var. YoY</th><th class="n">Kg</th></tr></thead><tbody>${mensalRows}</tbody></table></div></div>`;
+    <div class="card"><h3>${ic('meta')}Mês a mês</h3><div class="tbl-wrap"><table class="t"><thead><tr><th>Mês</th><th class="n">Meta</th><th class="n">Realizado</th><th class="n">Ating.</th><th class="n">${ENG.antLbl()}</th><th class="n">Var. YoY</th><th class="n">Kg</th><th class="n">Meta kg</th><th class="n">Ating. kg</th></tr></thead><tbody>${mensalRows}</tbody></table></div></div>`;
   },
   pos() { CH.acumulado(document.getElementById('acum'), K, 280); }
 };
@@ -903,29 +966,30 @@ VIEWS.objetivo = { t: 'Objetivo x Realizado', dim: 'vend',
 VIEWS.clientes = { t: 'Clientes', busca: '',
   html() {
     K = ENG.calc(); const k = K;
-    const cur = ENG.periodo(ENG.f.ano, 1, ENG.f.mFim), prev = ENG.periodo(ENG.f.ano - 1, 1, ENG.f.mFim);
+    const cur = ENG.rows(0), prev = ENG.rows(1);
     const g = ENG.agrupa(cur, 'cc'), gA = ENG.agrupa(prev, 'cc');
     const info = new Map(k.cart.lista.map(c => [c.cod, c]));
     const cods = new Set([...g.keys(), ...k.cart.lista.map(c => c.cod)]);
     const nome = new Map(DB.clientes.map(c => [String(c.COD_CLIENTE), c]));
     let linhas = [...cods].map(cod => { const x = g.get(cod) || { val: 0, kg: 0, peds: new Set() }, a = gA.get(cod) || { val: 0 }, i = info.get(cod) || {}, c = nome.get(cod) || {};
-      const cr = a.val ? x.val / a.val - 1 : null; const s = ST[i.st] || ['—', 'p-neu'];
-      return { cli: c.CLIENTE || cod, v: [c.CLIENTE || cod, c.VENDEDOR || '', x.val, cr ?? -99, x.kg, x.kg ? x.val / x.kg : 0, x.peds.size, i.freq ?? 999, i.dias ?? 9999, i.st || ''],
-        h: [F.esc(c.CLIENTE || cod), F.esc(c.VENDEDOR || ''), F.brl(x.val), varCell(cr), F.kgN(x.kg), x.kg ? F.brl2(x.val / x.kg) : '—', F.int(x.peds.size), i.freq ? `a cada ${Math.round(i.freq)} d` : '—', i.dias ?? '—', `<span class="pill ${s[1]}">${s[0]}</span>`], click: `VIEWS.clientes.abre('${cod}')` }; });
+      const cr = a.val ? x.val / a.val - 1 : null; const s = DB.temCli ? ST[i.st] || ['—', 'p-neu'] : ['aguarda vendas', 'p-neu'];
+      const mt = ENG.metaAcumFor('CLIENTE', c.CLIENTE || cod); const mv = mt?.val || null; const at = DB.temCli && mv ? x.val / mv : null;
+      return { cli: c.CLIENTE || cod, v: [c.CLIENTE || cod, c.VENDEDOR || '', mv ?? -1, x.val, at ?? -1, cr ?? -99, x.kg, x.kg ? x.val / x.kg : 0, x.peds.size, i.freq ?? 999, i.dias ?? 9999, i.st || ''],
+        h: [F.esc(c.CLIENTE || cod), F.esc(c.VENDEDOR || ''), mv ? F.brl(mv) : '—', DB.temCli ? F.brl(x.val) : '—', mv ? pillAting(at, !DB.temCli) : '—', varCell(cr), F.kgN(x.kg), x.kg ? F.brl2(x.val / x.kg) : '—', F.int(x.peds.size), i.freq ? `a cada ${Math.round(i.freq)} d` : '—', i.dias ?? '—', `<span class="pill ${s[1]}">${s[0]}</span>`], click: `VIEWS.clientes.abre('${cod}')` }; });
     const b = this.busca.toLowerCase(); if (b) linhas = linhas.filter(l => l.cli.toLowerCase().includes(b));
-    const tot = linhas.reduce((a, l) => a + l.v[2], 0);
+    const tot = linhas.reduce((a, l) => a + Math.max(0, l.v[3]), 0), totM = linhas.reduce((a, l) => a + Math.max(0, l.v[2]), 0);
     return `
     <div class="mk">
-      <div class="card"><div class="l">Clientes compradores no período</div><div class="v">${F.int(k.nCli)}</div></div>
-      <div class="card"><div class="l">Clientes ativos (90 dias)</div><div class="v">${F.int(k.at)}</div></div>
-      <div class="card"><div class="l">Ticket médio por pedido</div><div class="v">${F.brlC(k.c.val / Math.max(1, new Set(ENG.periodo(ENG.f.ano, 1, ENG.f.mFim).map(v => v.ped)).size))}</div></div>
+      <div class="card"><div class="l">Clientes compradores no período</div><div class="v">${DB.temCli ? F.int(k.nCli) : '—'}</div></div>
+      <div class="card"><div class="l">Clientes na carteira</div><div class="v">${F.int(DB.clientes.length)}</div></div>
+      <div class="card"><div class="l">Ticket médio por pedido</div><div class="v">${DB.temCli ? F.brlC(k.c.val / Math.max(1, new Set(ENG.rows(0).map(v => v.ped).filter(Boolean)).size)) : '—'}</div></div>
       <div class="card"><div class="l">Top 5 concentram</div><div class="v">${F.pct(k.conc5, 0)}</div></div>
       <div class="card"><div class="l">Top 10 concentram</div><div class="v">${F.pct(k.conc10, 0)}</div></div>
-      <div class="card"><div class="l">Em risco de recompra</div><div class="v dn">${k.cart.cont.risco}</div></div>
+      <div class="card"><div class="l">Em risco de recompra</div><div class="v dn">${DB.temCli ? k.cart.cont.risco : '—'}</div></div>
     </div>
     <div class="card"><h3>${ic('clientes')}Carteira de clientes<span class="dir"><button class="btn sm" onclick="VIEWS.clientes.exporta()">${ic('down')}Exportar CSV</button></span></h3>
       <div class="toolbar"><input type="search" id="bc" placeholder="Buscar cliente…" value="${F.esc(this.busca)}"></div>
-      ${UI.tabela('t-cli', [{ t: 'Cliente' }, { t: 'Vendedor' }, { t: 'Faturamento', n: 1 }, { t: 'Var. YoY', n: 1 }, { t: 'Kg', n: 1 }, { t: 'R$/kg', n: 1 }, { t: 'Pedidos', n: 1 }, { t: 'Frequência', n: 1 }, { t: 'Dias s/ compra', n: 1 }, { t: 'Situação' }], linhas, { ordem: 2, foot: ['Total', '', F.brl(tot), '', '', '', '', '', '', ''] })}</div>`;
+      ${UI.tabela('t-cli', [{ t: 'Cliente' }, { t: 'Vendedor' }, { t: 'Meta R$', n: 1 }, { t: 'Faturamento', n: 1 }, { t: 'Ating.', n: 1 }, { t: 'Var. YoY', n: 1 }, { t: 'Kg', n: 1 }, { t: 'R$/kg', n: 1 }, { t: 'Pedidos', n: 1 }, { t: 'Frequência', n: 1 }, { t: 'Dias s/ compra', n: 1 }, { t: 'Situação' }], linhas, { ordem: DB.temCli ? 3 : 2, foot: ['Total', '', F.brl(totM), DB.temCli ? F.brl(tot) : '—', '', '', '', '', '', '', '', ''] })}</div>`;
   },
   pos() { const i = document.getElementById('bc'); i.addEventListener('input', () => { clearTimeout(this._t); this._t = setTimeout(() => { this.busca = i.value; UI.render(); const n = document.getElementById('bc'); n.focus(); n.setSelectionRange(n.value.length, n.value.length); }, 250); }); },
   exporta() { const c = K.cart.lista; UI.csv(`clientes_${ENG.f.ano}_${ENG.f.mFim}.csv`, ['Código', 'Cliente', 'Vendedor', 'Canal', 'Situação', 'Última compra', 'Dias sem comprar', 'Frequência (dias)', 'Média mensal R$'], c.map(x => [x.cod, x.cli, x.vend, x.canal, ST[x.st][0], F.data(x.ultima), x.dias ?? '', x.freq ? Math.round(x.freq) : '', Math.round(x.media)])); },
@@ -934,10 +998,10 @@ VIEWS.clientes = { t: 'Clientes', busca: '',
     const c = DB.clientes.find(x => String(x.COD_CLIENTE) === cod) || { CLIENTE: cod }; const nm = c.CLIENTE;
     const ano = ENG.f.ano, mf = ENG.f.mFim;
     const todas = DB.vendas.filter(v => v.cc === cod);
-    const cur = todas.filter(v => v.y === ano && v.m <= mf), prev = todas.filter(v => v.y === ano - 1 && v.m <= mf);
+    const cur = todas.filter(v => ENG.noPeriodo(v, 0)), prev = todas.filter(v => ENG.noPeriodo(v, 1));
     const s = ENG.soma(cur), p = ENG.soma(prev);
     const inf = ENG.carteira({ cli: nm, vend: '', canal: '' }).lista[0] || {};
-    const ms = ENG.metaAcum(ENG.metasSerie({ cli: nm }));
+    const ms = ENG.metaAcumFor('CLIENTE', nm);
     const mens = Array(12).fill(0), mensA = Array(12).fill(0); todas.forEach(v => { if (v.y === ano) mens[v.m - 1] += v.val; if (v.y === ano - 1) mensA[v.m - 1] += v.val; });
     const gp = [...ENG.agrupa(cur, 'prod').values()].sort((a, b) => b.val - a.val);
     const compra = new Set(todas.map(v => v.prod));
@@ -948,7 +1012,7 @@ VIEWS.clientes = { t: 'Clientes', busca: '',
         <div class="card"><div class="l">Faturamento acumulado</div><div class="v">${F.brlC(s.val)}</div></div>
         <div class="card"><div class="l">Kg acumulados</div><div class="v">${F.kg(s.kg)}</div></div>
         <div class="card"><div class="l">Var. YoY R$</div><div class="v ${clsVar(p.val ? s.val / p.val - 1 : null)}">${F.var(p.val ? s.val / p.val - 1 : null)}</div></div>
-        <div class="card"><div class="l">Meta / Ating.</div><div class="v">${ms ? F.pct(s.val / ms.val) : '—'}</div></div>
+        <div class="card"><div class="l">Meta no período</div><div class="v">${ms?.val ? F.brlC(ms.val) : '—'}</div></div><div class="card"><div class="l">Atingimento</div><div class="v">${ms?.val && DB.temCli ? F.pct(s.val / ms.val) : '—'}</div></div>
         <div class="card"><div class="l">Frequência de compra</div><div class="v">${inf.freq ? Math.round(inf.freq) + ' dias' : '—'}</div></div>
         <div class="card"><div class="l">Última compra</div><div class="v" style="font-size:16px">${F.data(inf.ultima)}<br><span class="help">${inf.dias ?? '—'} dias atrás</span></div></div>
         <div class="card"><div class="l">Mix comprado</div><div class="v">${gp.length} itens</div></div>
@@ -966,23 +1030,23 @@ VIEWS.clientes = { t: 'Clientes', busca: '',
 VIEWS.vendedores = { t: 'Vendedores',
   html() { K = ENG.calc(); const vs = K.vends.filter(v => !ENG.f.vend || v.k === ENG.f.vend);
     return `<div class="vcards">${vs.map(v => { const cart = ENG.carteira({ vend: v.k }); return `<div class="card vcard" onclick="VIEWS.vendedores.abre('${F.esc(v.k).replace(/'/g, "\\'")}')"><div class="nm">${F.esc(v.k)}</div>
-      ${gauge(v.ating, 'da meta acumulada')}
-      <div class="ln"><span>Realizado</span><b>${F.brlC(v.val)}</b></div><div class="ln"><span>Meta acumulada</span><b>${v.meta !== null ? F.brlC(v.meta) : '—'}</b></div>
+      ${gauge(v.ating, v.ating === null && v.meta ? 'aguarda o realizado' : 'da meta acumulada')}
+      <div class="ln"><span>Realizado</span><b>${DB.temVend ? F.brlC(v.val) : '—'}</b></div><div class="ln"><span>Meta acumulada</span><b>${v.meta !== null ? F.brlC(v.meta) : '—'}</b></div>
       <div class="ln"><span>Var. YoY</span><b class="${clsVar(v.gR)}">${F.var(v.gR)}</b></div><div class="ln"><span>Kg</span><b>${F.kg(v.kg)}</b></div>
-      <div class="ln"><span>Cobertura no mês</span><b>${F.pct(cart.cobertura, 0)} · ${cart.cont.comprou}/${cart.total - cart.cont.inativo}</b></div></div>`; }).join('')}</div>
+      <div class="ln"><span>${DB.temCli ? 'Cobertura no mês' : 'Clientes na carteira'}</span><b>${DB.temCli ? `${F.pct(cart.cobertura, 0)} · ${cart.cont.comprou}/${cart.total - cart.cont.inativo}` : cart.total}</b></div></div>`; }).join('')}</div>
     <div class="card"><h3>${ic('vend')}Comparativo</h3>${UI.tabela('t-vend', [{ t: 'Vendedor' }, { t: 'Meta', n: 1 }, { t: 'Realizado', n: 1 }, { t: 'Ating.', n: 1 }, { t: 'Gap', n: 1 }, { t: 'Var. R$', n: 1 }, { t: 'Var. kg', n: 1 }, { t: 'Kg', n: 1 }, { t: 'R$/kg', n: 1 }, { t: 'Ticket médio', n: 1 }, { t: 'Clientes', n: 1 }],
-      vs.map(v => ({ v: [v.k, v.meta ?? -1, v.val, v.ating ?? -1, v.gap ?? -1e15, v.gR ?? -99, v.gK ?? -99, v.kg, v.rkg, v.ticket, v.clis], h: [F.esc(v.k), v.meta !== null ? F.brl(v.meta) : '—', F.brl(v.val), pillAting(v.ating), v.gap !== null ? `<span class="${v.gap >= 0 ? 'up' : 'dn'}">${F.brl(v.gap)}</span>` : '—', varCell(v.gR), varCell(v.gK), F.kgN(v.kg), F.brl2(v.rkg), F.brl(v.ticket), v.clis], click: `VIEWS.vendedores.abre('${F.esc(v.k).replace(/'/g, "\\'")}')` })), { ordem: 3 })}</div>`; },
+      vs.map(v => ({ v: [v.k, v.meta ?? -1, v.val, v.ating ?? -1, v.gap ?? -1e15, v.gR ?? -99, v.gK ?? -99, v.kg, v.rkg, v.ticket, v.clis], h: [F.esc(v.k), v.meta !== null ? F.brl(v.meta) : '—', DB.temVend ? F.brl(v.val) : '—', pillAting(v.ating, !DB.temVend), v.gap !== null ? `<span class="${v.gap >= 0 ? 'up' : 'dn'}">${F.brl(v.gap)}</span>` : '—', varCell(v.gR), varCell(v.gK), F.kgN(v.kg), F.brl2(v.rkg), F.brl(v.ticket), v.clis], click: `VIEWS.vendedores.abre('${F.esc(v.k).replace(/'/g, "\\'")}')` })), { ordem: 3 })}</div>`; },
   abre(nome) {
     const v = K.vends.find(x => x.k === nome) || { k: nome, val: 0, kg: 0, meta: null, ating: null };
-    const cur = ENG.periodo(ENG.f.ano, 1, ENG.f.mFim, { vend: true }).filter(x => x.vend === nome);
+    const cur = ENG.rows(0, { vend: true }).filter(x => x.vend === nome);
     const cart = ENG.carteira({ vend: nome });
     const topC = [...ENG.agrupa(cur, 'cli').values()].sort((a, b) => b.val - a.val).slice(0, 8);
     const topP = [...ENG.agrupa(cur, 'prod').values()].sort((a, b) => b.val - a.val);
     const vendeu = new Set(topP.map(p => p.k)); const naoTrab = DB.listaProd.filter(p => !vendeu.has(p));
-    const ms = ENG.metasSerie({ vend: nome, cli: '', prod: '', canal: '' }); const mens = Array(12).fill(0); cur.forEach(x => mens[x.m - 1] += x.val);
+    const ms = ENG.metasSerieFor('VENDEDOR', nome); const mens = ENG.serie(0, { vend: true }, x => x.vend === nome).map(x => x.val);
     const pend = cart.lista.filter(c => c.st === 'aguardando' || c.st === 'risco').sort((a, b) => (b.media || 0) - (a.media || 0));
     UI.drawer(`<div class="hd"><div><div class="help">Painel do vendedor</div><h2>${F.esc(nome)}</h2></div><button class="x" onclick="UI.fecha()" aria-label="Fechar">✕</button></div>
-      <div class="row2" style="grid-template-columns:minmax(0,1fr) minmax(0,1.2fr)"><div class="card">${gauge(v.ating, 'da meta acumulada')}</div>
+      <div class="row2" style="grid-template-columns:minmax(0,1fr) minmax(0,1.2fr)"><div class="card">${gauge(v.ating, v.ating === null && v.meta ? 'aguarda o realizado' : 'da meta acumulada')}</div>
       <div class="mk" style="align-content:start"><div class="card"><div class="l">Realizado</div><div class="v">${F.brlC(v.val)}</div></div><div class="card"><div class="l">Meta acumulada</div><div class="v">${v.meta !== null ? F.brlC(v.meta) : '—'}</div></div>
       <div class="card"><div class="l">Kg vendidos</div><div class="v">${F.kg(v.kg)}</div></div><div class="card"><div class="l">Var. YoY</div><div class="v ${clsVar(v.gR)}">${F.var(v.gR)}</div></div>
       <div class="card"><div class="l">R$/kg</div><div class="v">${F.brl2(v.rkg || 0)}</div></div><div class="card"><div class="l">Ticket médio</div><div class="v">${F.brlC(v.ticket || 0)}</div></div></div></div>
@@ -992,7 +1056,7 @@ VIEWS.vendedores = { t: 'Vendedores',
       <div class="row2" style="grid-template-columns:1fr 1fr"><div class="card"><h3>${ic('clientes')}Top clientes</h3><div class="bars">${topC.map(x => `<div class="bar"><span class="nm">${F.esc(x.k)}</span><span class="tr"><span class="fi" style="display:block;width:${x.val / (topC[0]?.val || 1) * 100}%"></span></span><span class="vl">${F.brlC(x.val)}</span></div>`).join('')}</div></div>
       <div class="card"><h3>${ic('prod')}Top produtos</h3><div class="bars">${topP.slice(0, 8).map(x => `<div class="bar"><span class="nm">${F.esc(x.k)}</span><span class="tr"><span class="fi" style="display:block;width:${x.val / (topP[0]?.val || 1) * 100}%"></span></span><span class="vl">${F.brlC(x.val)}</span></div>`).join('')}</div>
       <h3 style="margin-top:16px">${ic('tag')}Produtos não trabalhados</h3><div class="chips">${naoTrab.map(p => `<span class="chip op">${F.esc(p)}</span>`).join('') || '<span class="help">Vende todo o portfólio.</span>'}</div></div></div>`,
-      () => CH.novo(document.getElementById('vm'), { type: 'bar', data: { labels: MESES.slice(0, ENG.f.mFim), datasets: [{ label: 'Meta', data: ms ? ms.slice(0, ENG.f.mFim).map(x => x.val) : [], backgroundColor: CH.css('--bege'), borderRadius: 4 }, { label: 'Realizado', data: mens.slice(0, ENG.f.mFim), backgroundColor: CH.css('--vinho'), borderRadius: 4 }] }, options: { plugins: { legend: { display: true, position: 'bottom' }, tooltip: { callbacks: { label: t => ` ${t.dataset.label}: ${F.brlC(t.raw)}` } } }, scales: { y: { ticks: { callback: v => F.brlC(v) } }, x: { grid: { display: false } } } } }));
+      () => CH.novo(document.getElementById('vm'), { type: 'bar', data: { labels: K.lbl, datasets: [{ label: 'Meta', data: ms ? ms.map(x => x.val) : [], backgroundColor: CH.css('--bege'), borderRadius: 4 }, { label: 'Realizado', data: mens, backgroundColor: CH.css('--vinho'), borderRadius: 4 }] }, options: { plugins: { legend: { display: true, position: 'bottom' }, tooltip: { callbacks: { label: t => ` ${t.dataset.label}: ${F.brlC(t.raw)}` } } }, scales: { y: { ticks: { callback: v => F.brlC(v) } }, x: { grid: { display: false } } } } }));
   }
 };
 
@@ -1003,15 +1067,15 @@ VIEWS.produtos = { t: 'Produtos',
     return `<div class="row2">
       <div class="card"><h3>${ic('cresc')}Matriz de crescimento<span class="dir">bolha = faturamento</span></h3><div class="chart-box" style="height:340px"><canvas id="mx"></canvas></div>
         <p class="help">Acima da diagonal, o R$ cresce mais que o kg (preço ou mix). Abaixo, o volume cresce mais que a receita.</p></div>
-      <div class="card"><h3>${ic('pizza')}Participação no crescimento</h3><p class="help" style="margin-top:-4px">A empresa ${k.c.val >= k.p.val ? 'cresceu' : 'recuou'} <b>${F.brlC(k.c.val - k.p.val)}</b> contra ${ENG.f.ano - 1}. Quem puxou:</p>
-        <div class="bars">${[...ps].filter(p => p.contrib !== null).sort((a, b) => (b.val - b.valA) - (a.val - a.valA)).slice(0, 9).map(p => { const dv = p.val - p.valA; const mx = Math.max(...ps.map(x => Math.abs(x.val - x.valA))) || 1; return `<div class="bar"><span class="nm">${F.esc(p.k)}</span><span class="tr"><span class="fi" style="display:block;width:${Math.abs(dv) / mx * 100}%;background:${dv >= 0 ? 'var(--ok)' : 'var(--bad)'}"></span></span><span class="vl ${dv >= 0 ? 'up' : 'dn'}">${F.brlC(dv)} · ${F.pct(p.contrib, 0)}</span></div>`; }).join('')}</div></div></div>
+      <div class="card"><h3>${ic('pizza')}Participação no crescimento</h3>${!k.p.val ? `<p class="help">Mostra quais produtos puxaram o crescimento contra ${ENG.antLbl()}. Aparece quando houver vendas desse período para comparar.</p>` : `<p class="help" style="margin-top:-4px">A empresa ${k.c.val >= k.p.val ? 'cresceu' : 'recuou'} <b>${F.brlC(k.c.val - k.p.val)}</b> contra ${ENG.antLbl()}. Quem puxou:</p>
+        <div class="bars">${[...ps].filter(p => p.contrib !== null).sort((a, b) => (b.val - b.valA) - (a.val - a.valA)).slice(0, 9).map(p => { const dv = p.val - p.valA; const mx = Math.max(...ps.map(x => Math.abs(x.val - x.valA))) || 1; return `<div class="bar"><span class="nm">${F.esc(p.k)}</span><span class="tr"><span class="fi" style="display:block;width:${Math.abs(dv) / mx * 100}%;background:${dv >= 0 ? 'var(--ok)' : 'var(--bad)'}"></span></span><span class="vl ${dv >= 0 ? 'up' : 'dn'}">${F.brlC(dv)} · ${F.pct(p.contrib, 0)}</span></div>`; }).join('')}</div>`}</div></div>
     <div class="card"><h3>${ic('caixa')}Kg e R$ acumulados por produto<span class="dir">concentração top 3: <b>${F.pct(k.conc3p, 0)}</b></span></h3>
-      ${UI.tabela('t-prod', [{ t: 'Produto' }, { t: 'R$ acumulado', n: 1 }, { t: 'Var. R$', n: 1 }, { t: 'Kg acumulado', n: 1 }, { t: 'Var. kg', n: 1 }, { t: 'R$/kg', n: 1 }, { t: '% fat.', n: 1 }, { t: '% vol.', n: 1 }, { t: 'Clientes', n: 1 }, { t: 'Vendedores', n: 1 }, { t: 'Movimento' }],
-        ps.map(p => ({ v: [p.k, p.val, p.gR ?? -99, p.kg, p.gK ?? -99, p.rkg, p.shV, p.shK, p.clis, p.vends, p.cls[0]], h: [F.esc(p.k), F.brl(p.val), varCell(p.gR), F.kgN(p.kg), varCell(p.gK), F.brl2(p.rkg), F.pct(p.shV), F.pct(p.shK), p.clis, p.vends, `<span class="pill ${p.cls[1]}">${p.cls[0]}</span>`], click: `VIEWS.produtos.abre('${F.esc(p.k).replace(/'/g, "\\'")}')` })),
-        { ordem: 1, foot: ['Total', F.brl(tot.val), varCell(k.gR), F.kgN(tot.kg), varCell(k.gK), F.brl2(k.rkg), '100%', '100%', '', '', ''] })}</div>`; },
+      ${UI.tabela('t-prod', [{ t: 'Produto' }, { t: 'R$ acumulado', n: 1 }, { t: 'Var. R$', n: 1 }, { t: 'Kg acumulado', n: 1 }, { t: 'Var. kg', n: 1 }, { t: 'Meta kg', n: 1 }, { t: 'Ating. kg', n: 1 }, { t: 'R$/kg', n: 1 }, { t: '% fat.', n: 1 }, { t: '% vol.', n: 1 }, { t: 'Clientes', n: 1 }, { t: 'Movimento' }],
+        ps.map(p => ({ v: [p.k, p.val, p.gR ?? -99, p.kg, p.gK ?? -99, p.metaKg ?? -1, p.atingKg ?? -1, p.rkg, p.shV, p.shK, p.clis, p.cls[0]], h: [F.esc(p.k), F.brl(p.val), varCell(p.gR), F.kgN(p.kg), varCell(p.gK), p.metaKg ? F.kgN(p.metaKg) : '—', p.metaKg ? pillAting(p.atingKg) : '—', F.brl2(p.rkg), F.pct(p.shV), F.pct(p.shK), DB.temCli ? p.clis : '—', `<span class="pill ${p.cls[1]}">${p.cls[0]}</span>`], click: `VIEWS.produtos.abre('${F.esc(p.k).replace(/'/g, "\\'")}')` })),
+        { ordem: 1, foot: ['Total', F.brl(tot.val), varCell(k.gR), F.kgN(tot.kg), varCell(k.gK), k.metaAc?.kg ? F.kgN(k.metaAc.kg) : '', k.metaAc?.kg ? pillAting(tot.kg / k.metaAc.kg) : '', F.brl2(k.rkg), '100%', '100%', '', ''] })}</div>`; },
   pos() { this.matriz(document.getElementById('mx'), K, true); },
   matriz(el, k, rot) {
-    const ps = k.prods.filter(p => p.gR !== null && p.gK !== null); if (!ps.length) return;
+    const ps = k.prods.filter(p => p.gR !== null && p.gK !== null); if (!ps.length) { if (el) el.parentElement.innerHTML = `<p class="help">A matriz compara com o mesmo período de ${ENG.antLbl()}. Aparece quando houver vendas dos dois períodos.</p>`; return; }
     const mx = Math.max(...ps.map(p => p.val)); const lim = Math.min(150, Math.max(30, Math.ceil((Math.max(...ps.map(p => Math.max(Math.abs(p.gR), Math.abs(p.gK)))) * 100 + 5) / 10) * 10)) / 100;
     const topLbl = new Set([...ps].sort((a, b) => b.val - a.val).slice(0, 4).map(p => p.k));
     const cor = p => p.gR >= 0 && p.gK >= 0 ? 'rgba(90,30,36,.82)' : p.gR >= 0 ? 'rgba(201,146,46,.78)' : 'rgba(194,59,53,.7)';
@@ -1028,13 +1092,13 @@ VIEWS.produtos = { t: 'Produtos',
     const todas = DB.vendas.filter(v => v.prod === nome && ENG.passa(v, { prod: true }));
     const mens = Array(12).fill(0), mensA = Array(12).fill(0), kgM = Array(12).fill(0), kgA = Array(12).fill(0);
     todas.forEach(v => { if (v.y === ENG.f.ano) { mens[v.m - 1] += v.val; kgM[v.m - 1] += v.kg; } if (v.y === ENG.f.ano - 1) { mensA[v.m - 1] += v.val; kgA[v.m - 1] += v.kg; } });
-    const cur = todas.filter(v => v.y === ENG.f.ano && v.m <= ENG.f.mFim);
+    const cur = todas.filter(v => ENG.noPeriodo(v, 0));
     const topC = [...ENG.agrupa(cur, 'cli').values()].sort((a, b) => b.val - a.val).slice(0, 8);
     const pv = [...ENG.agrupa(cur, 'vend').values()].sort((a, b) => b.val - a.val);
-    const ms = ENG.metaAcum(ENG.metasSerie({ prod: nome, cli: '' }));
+    const ms = ENG.metaAcumFor('PRODUTO', nome);
     UI.drawer(`<div class="hd"><div><div class="help">Produto</div><h2>${F.esc(nome)}</h2><span class="pill ${p.cls[1]}">${p.cls[0]}</span></div><button class="x" onclick="UI.fecha()" aria-label="Fechar">✕</button></div>
       <div class="mk"><div class="card"><div class="l">R$ acumulado</div><div class="v">${F.brlC(p.val)}</div></div><div class="card"><div class="l">Var. R$</div><div class="v ${clsVar(p.gR)}">${F.var(p.gR)}</div></div><div class="card"><div class="l">Kg acumulado</div><div class="v">${F.kg(p.kg)}</div></div><div class="card"><div class="l">Var. kg</div><div class="v ${clsVar(p.gK)}">${F.var(p.gK)}</div></div>
-      <div class="card"><div class="l">R$/kg</div><div class="v">${F.brl2(p.rkg || 0)}</div></div><div class="card"><div class="l">Participação fat.</div><div class="v">${F.pct(p.shV)}</div></div><div class="card"><div class="l">Clientes compradores</div><div class="v">${p.clis || 0}</div></div><div class="card"><div class="l">Meta / Ating.</div><div class="v">${ms?.val ? F.pct(p.val / ms.val) : '—'}</div></div></div>
+      <div class="card"><div class="l">R$/kg</div><div class="v">${F.brl2(p.rkg || 0)}</div></div><div class="card"><div class="l">Participação fat.</div><div class="v">${F.pct(p.shV)}</div></div><div class="card"><div class="l">Meta kg no período</div><div class="v">${ms?.kg ? F.kg(ms.kg) : '—'}</div></div><div class="card"><div class="l">Meta / Ating.</div><div class="v">${ms?.val ? F.pct(p.val / ms.val) : '—'}</div></div></div>
       <div class="card"><h3>${ic('visao')}R$ e kg por mês</h3><div class="chart-box" style="height:220px"><canvas id="pm"></canvas></div></div>
       <div class="row2" style="grid-template-columns:1fr 1fr"><div class="card"><h3>${ic('clientes')}Maiores compradores</h3><div class="bars">${topC.map(x => `<div class="bar"><span class="nm">${F.esc(x.k)}</span><span class="tr"><span class="fi" style="display:block;width:${x.val / (topC[0]?.val || 1) * 100}%"></span></span><span class="vl">${F.kg(x.kg)}</span></div>`).join('')}</div></div>
       <div class="card"><h3>${ic('vend')}Por vendedor</h3><div class="bars">${pv.map(x => `<div class="bar"><span class="nm">${F.esc(x.k)}</span><span class="tr"><span class="fi" style="display:block;width:${x.val / (pv[0]?.val || 1) * 100}%"></span></span><span class="vl">${F.brlC(x.val)}</span></div>`).join('')}</div></div></div>`,
@@ -1047,6 +1111,7 @@ VIEWS.produtos = { t: 'Produtos',
 VIEWS.cobertura = { t: 'Cobertura de Clientes', filtro: 'aguardando',
   abre(st) { this.filtro = st; if (UI.view !== 'cobertura') UI.go('cobertura'); else UI.render(); },
   html() { K = ENG.calc(); const c = K.cart;
+    if (!DB.temCli) return `<div class="card"><h3>${ic('pin')}Cobertura de clientes</h3><p class="help">Esta tela mostra quem comprou e quem ainda não comprou no mês, com a frequência de recompra de cada cliente. Ela aparece quando entrar o relatório de vendas por item (com cliente). Carteira cadastrada: <b>${F.int(DB.clientes.length)} clientes</b>.</p><button class="btn pri" onclick="UI.go('lancamentos')">${ic('up')}Importar vendas</button></div>`;
     const lista = c.lista.filter(x => this.filtro === 'todos' || x.st === this.filtro);
     return `<div class="row2" style="grid-template-columns:minmax(0,1fr) minmax(0,2fr)">
       <div class="card"><h3>${ic('pizza')}Situação da carteira em ${F.data(ENG.ref())}</h3><div class="donut-wrap" style="justify-content:center"><div class="donut" style="width:190px;height:190px"><canvas id="dn"></canvas><div class="c"><b>${F.pct(c.cobertura, 0)}</b><span>cobertura</span></div></div></div>
@@ -1055,21 +1120,22 @@ VIEWS.cobertura = { t: 'Cobertura de Clientes', filtro: 'aguardando',
         <div class="toolbar"><span class="seg">${[['aguardando', 'Ainda não compraram'], ['risco', 'Em risco'], ['inativo', 'Inativos'], ['comprou', 'Compraram'], ['todos', 'Todos']].map(([s, n]) => `<button class="${this.filtro === s ? 'on' : ''}" onclick="VIEWS.cobertura.filtro='${s}';UI.render()">${n} (${s === 'todos' ? c.total : c.cont[s]})</button>`).join('')}</span></div>
         ${UI.tabela('t-cob', [{ t: 'Cliente' }, { t: 'Vendedor' }, { t: 'Última compra', n: 1 }, { t: 'Dias sem comprar', n: 1 }, { t: 'Compra a cada', n: 1 }, { t: 'Atraso', n: 1 }, { t: 'Média mensal', n: 1 }, { t: 'Situação' }],
           lista.map(x => ({ v: [x.cli, x.vend, x.ultima || '', x.dias ?? 9999, x.freq ?? 999, x.atraso ?? -999, x.media, x.st], h: [F.esc(x.cli), F.esc(x.vend), F.data(x.ultima), x.dias ?? '—', x.freq ? Math.round(x.freq) + ' dias' : '—', x.atraso > 0 ? `<span class="dn">+${Math.round(x.atraso)} d</span>` : '—', F.brlC(x.media), `<span class="pill ${ST[x.st][1]}">${ST[x.st][0]}</span>`], click: `VIEWS.clientes.abre('${x.cod}')` })), { ordem: 6 })}</div></div>`; },
-  pos() { const cc = K.cart.cont; CH.novo(document.getElementById('dn'), { type: 'doughnut', data: { labels: Object.values(ST).map(s => s[0]), datasets: [{ data: [cc.comprou, cc.aguardando, cc.risco, cc.inativo], backgroundColor: Object.values(ST).map(s => s[2]), borderWidth: 2, borderColor: CH.css('--card') }] }, options: { cutout: '66%', onClick: (e, el) => el[0] && this.abre(Object.keys(ST)[el[0].index]) } }); },
+  pos() { if (!DB.temCli) return; const cc = K.cart.cont; CH.novo(document.getElementById('dn'), { type: 'doughnut', data: { labels: Object.values(ST).map(s => s[0]), datasets: [{ data: [cc.comprou, cc.aguardando, cc.risco, cc.inativo], backgroundColor: Object.values(ST).map(s => s[2]), borderWidth: 2, borderColor: CH.css('--card') }] }, options: { cutout: '66%', onClick: (e, el) => el[0] && this.abre(Object.keys(ST)[el[0].index]) } }); },
   exporta() { const l = K.cart.lista.filter(x => this.filtro === 'todos' || x.st === this.filtro); UI.csv(`cobertura_${this.filtro}.csv`, ['Cliente', 'Vendedor', 'Última compra', 'Dias sem comprar', 'Frequência (dias)', 'Média mensal R$', 'Situação'], l.map(x => [x.cli, x.vend, F.data(x.ultima), x.dias ?? '', x.freq ? Math.round(x.freq) : '', Math.round(x.media), ST[x.st][0]])); }
 };
 
 /* === Metas === */
 VIEWS.metas = { t: 'Planejamento / Metas', s: 'Objetivos mensais em R$ e kg', semFiltro: true, tipo: 'EMPRESA', chave: 'EMPRESA',
-  html() { const ano = ENG.f.ano; const tipos = { EMPRESA: 'Empresa', VENDEDOR: 'Vendedor', CLIENTE: 'Cliente', PRODUTO: 'Produto' };
+  html() { const ano = this.ano || ENG.f.ano; const tipos = { EMPRESA: 'Empresa', VENDEDOR: 'Vendedor', CLIENTE: 'Cliente', PRODUTO: 'Produto' };
     const lista = { EMPRESA: ['EMPRESA'], VENDEDOR: DB.listaVend, CLIENTE: DB.listaCli, PRODUTO: DB.listaProd }[this.tipo];
     if (!lista.includes(this.chave)) this.chave = lista[0] || '';
-    const cur = []; for (let m = 1; m <= 12; m++) { const r = DB.metas.filter(x => x.ano === ano && x.mes === m && x.tipo === this.tipo && x.chave === this.chave); cur.push({ val: r.reduce((a, x) => a + x.val, 0), kg: r.reduce((a, x) => a + x.kg, 0) }); }
+    const ks = ENG.chaves(this.tipo, this.chave);
+    const cur = []; for (let m = 1; m <= 12; m++) { const r = DB.metas.filter(x => x.ano === ano && x.mes === m && x.tipo === this.tipo && ks.includes(x.chave)); cur.push({ val: r.reduce((a, x) => a + x.val, 0), kg: r.reduce((a, x) => a + x.kg, 0) }); }
     const campo = { VENDEDOR: 'vend', CLIENTE: 'cli', PRODUTO: 'prod' }[this.tipo];
     const base = Array(12).fill(0).map(() => ({ val: 0, kg: 0 })); DB.vendas.forEach(v => { if (v.y === ano - 1 && (!campo || v[campo] === this.chave)) { base[v.m - 1].val += v.val; base[v.m - 1].kg += v.kg; } });
     this._base = base;
     const totM = cur.reduce((a, x) => a + x.val, 0), totK = cur.reduce((a, x) => a + x.kg, 0), totB = base.reduce((a, x) => a + x.val, 0);
-    const resumo = ['VENDEDOR', 'PRODUTO'].map(t => { const g = {}; DB.metas.filter(m => m.ano === ano && m.tipo === t).forEach(m => g[m.chave] = (g[m.chave] || 0) + m.val); return [t, g]; });
+    const resumo = ['VENDEDOR', 'PRODUTO'].map(t => { const g = {}; DB.metas.filter(m => m.ano === ano && m.tipo === t).forEach(m => { const nk = ENG.nomeChave(t, m.chave); g[nk] = (g[nk] || 0) + (t === 'PRODUTO' ? m.kg : m.val); }); return [t, g]; });
     return `<div class="card"><h3>${ic('meta')}Cadastro de metas ${ano}</h3>
       <div class="form" style="margin-bottom:14px">
         <div class="f"><label for="m-ano">Ano</label><select id="m-ano">${[ano + 1, ano, ano - 1].map(a => `<option ${a === ano ? 'selected' : ''}>${a}</option>`).join('')}</select></div>
@@ -1082,18 +1148,19 @@ VIEWS.metas = { t: 'Planejamento / Metas', s: 'Objetivos mensais em R$ e kg', se
       <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin-top:14px"><button class="btn pri" onclick="VIEWS.metas.salvar()">${ic('check')}Salvar metas</button>
         <span class="help">Total atual: <b>${F.brl(totM)}</b> · ${F.kgN(totK)} ${totB ? `(${F.var(totM / totB - 1)} sobre ${ano - 1})` : ''}</span></div>
       <p class="help">Quando não houver meta de Empresa, o sistema soma as metas dos vendedores. A meta do mês corrente entra proporcional aos dias corridos.</p></div>
-      <div class="row2" style="grid-template-columns:1fr 1fr">${resumo.map(([t, g]) => `<div class="card"><h3>${ic(t === 'VENDEDOR' ? 'vend' : 'prod')}Metas anuais por ${t.toLowerCase()}</h3><div class="bars">${Object.entries(g).sort((a, b) => b[1] - a[1]).slice(0, 12).map(([k, v]) => `<div class="bar click" onclick="VIEWS.metas.tipo='${t}';VIEWS.metas.chave='${F.esc(k).replace(/'/g, "\\'")}';UI.render()"><span class="nm">${F.esc(k)}</span><span class="tr"><span class="fi" style="display:block;width:${v / Math.max(...Object.values(g)) * 100}%"></span></span><span class="vl">${F.brlC(v)}</span></div>`).join('') || '<p class="help">Nenhuma meta cadastrada.</p>'}</div></div>`).join('')}</div>`; },
+      <div class="row2" style="grid-template-columns:1fr 1fr">${resumo.map(([t, g]) => `<div class="card"><h3>${ic(t === 'VENDEDOR' ? 'vend' : 'prod')}Metas anuais por ${t.toLowerCase()} ${t === 'PRODUTO' ? '(kg)' : '(R$)'}</h3><div class="bars">${Object.entries(g).sort((a, b) => b[1] - a[1]).slice(0, 12).map(([k, v]) => `<div class="bar click" onclick="VIEWS.metas.tipo='${t}';VIEWS.metas.chave='${F.esc(k).replace(/'/g, "\\'")}';UI.render()"><span class="nm">${F.esc(k)}</span><span class="tr"><span class="fi" style="display:block;width:${v / Math.max(...Object.values(g)) * 100}%"></span></span><span class="vl">${t === 'PRODUTO' ? F.kg(v) : F.brlC(v)}</span></div>`).join('') || '<p class="help">Nenhuma meta cadastrada.</p>'}</div></div>`).join('')}</div>`; },
   pos() {
     document.getElementById('m-tipo').onchange = e => { this.tipo = e.target.value; this.chave = this.tipo === 'EMPRESA' ? 'EMPRESA' : ''; UI.render(); };
     const c = document.getElementById('m-chave'); if (c) c.onchange = e => { this.chave = e.target.value; UI.render(); };
-    document.getElementById('m-ano').onchange = e => { ENG.f.ano = +e.target.value; ENG.f.mFim = Math.min(ENG.f.mFim, 12); UI.render(); };
+    document.getElementById('m-ano').onchange = e => { this.ano = +e.target.value; UI.render(); };
   },
   sugerir() { const p = (+document.getElementById('m-pct').value || 0) / 100; this._base.forEach((b, i) => { document.getElementById('mv-' + i).value = b.val ? nf(2).format(Math.round(b.val * (1 + p) / 100) * 100) : ''; document.getElementById('mk-' + i).value = b.kg ? nf(0).format(Math.round(b.kg * (1 + p * .6))) : ''; }); UI.toast('Metas sugeridas. Revise e clique em Salvar.'); },
   async salvar() {
     const ano = +document.getElementById('m-ano').value; const meses = MESES.map((_, i) => ({ mes: i + 1, valor: DB.num(document.getElementById('mv-' + i).value), kg: DB.num(document.getElementById('mk-' + i).value) }));
     try { await API.post('salvarMetas', { ano, tipo: this.tipo, chave: this.chave, meses });
-      DB.metas = DB.metas.filter(m => !(m.ano === ano && m.tipo === this.tipo && m.chave === this.chave)).concat(meses.filter(m => m.valor || m.kg).map(m => ({ ano, mes: m.mes, tipo: this.tipo, chave: this.chave, val: m.valor, kg: m.kg })));
-      UI.toast(CFG.demo ? 'Metas aplicadas (modo demonstração, não gravadas).' : 'Metas salvas na base de dados.'); UI.render(); } catch (e) { UI.toast('Não foi possível salvar: ' + e.message, 5000); }
+      const ks = ENG.chaves(this.tipo, this.chave);
+      DB.metas = DB.metas.filter(m => !(m.ano === ano && m.tipo === this.tipo && ks.includes(m.chave))).concat(meses.filter(m => m.valor || m.kg).map(m => ({ ano, mes: m.mes, tipo: this.tipo, chave: this.chave, val: m.valor, kg: m.kg })));
+      DB.indexaMetas(); UI.toast(CFG.demo ? 'Metas aplicadas (modo demonstração, não gravadas).' : 'Metas salvas na base de dados.'); UI.render(); } catch (e) { UI.toast('Não foi possível salvar: ' + e.message, 5000); }
   }
 };
 
@@ -1132,13 +1199,31 @@ const lkv = id => document.getElementById(id).value.trim();
 
 /* === Lançamentos / Importações === */
 const MAPA_COLS = { data: ['data', 'dt', 'emissao', 'data emissao', 'data_emissao', 'dt_emissao'], pedido: ['pedido', 'nf', 'nota', 'documento', 'num_pedido', 'numero'], cod_cliente: ['cod_cliente', 'codigo cliente', 'cod cliente', 'cliente_cod', 'cnpj'], cliente: ['cliente', 'razao social', 'nome fantasia', 'nome_cliente'], vendedor: ['vendedor', 'representante', 'rca'], cod_produto: ['cod_produto', 'codigo produto', 'cod produto', 'sku', 'codigo'], produto: ['produto', 'descricao', 'descrição', 'item'], canal: ['canal', 'segmento'], qtd: ['qtd', 'quantidade', 'qtde', 'caixas'], kg: ['kg', 'peso', 'peso_kg', 'quilos', 'kilos'], valor: ['valor', 'valor total', 'total', 'faturamento', 'vl_total', 'valor_total'] };
-VIEWS.lancamentos = { t: 'Lançamentos / Importações', s: 'Alimentação da base de dados', semFiltro: true, aba: 'imp', prev: null,
-  html() { const a = this.aba; return `<div class="tabs">${[['imp', 'Importar arquivo'], ['venda', 'Nova venda'], ['cad', 'Cadastros']].map(([k, n]) => `<button class="${a === k ? 'on' : ''}" onclick="VIEWS.lancamentos.aba='${k}';UI.render()">${n}</button>`).join('')}</div>
-    ${a === 'imp' ? this.imp() : a === 'venda' ? this.venda() : this.cad()}`; },
+VIEWS.lancamentos = { t: 'Lançamentos / Importações', s: 'Alimentação da base de dados', semFiltro: true, aba: 'plan', prev: null, plan: null,
+  html() { const a = this.aba; return `<div class="tabs">${[['plan', 'Importar planejamento'], ['imp', 'Importar vendas'], ['venda', 'Nova venda'], ['cad', 'Cadastros']].map(([k, n]) => `<button class="${a === k ? 'on' : ''}" onclick="VIEWS.lancamentos.aba='${k}';UI.render()">${n}</button>`).join('')}</div>
+    ${a === 'plan' ? this.planHtml() : a === 'imp' ? this.imp() : a === 'venda' ? this.venda() : this.cad()}`; },
+  planHtml() { const p = this.plan; const x = p ? PLAN.montar(p, p.anoMeta, p.anoHist) : null;
+    const somaM = x ? x.metas.filter(m => m.tipo === 'EMPRESA').reduce((a, m) => ({ v: a.v + m.valor, k: a.k + m.kg }), { v: 0, k: 0 }) : null;
+    const somaH = x ? x.historico.reduce((a, h) => ({ v: a.v + h.valor, k: a.k + h.kg }), { v: 0, k: 0 }) : null;
+    const anos = [new Date().getFullYear() + 1, new Date().getFullYear(), new Date().getFullYear() - 1];
+    return `<div class="card"><h3>${ic('meta')}Importar a planilha de planejamento</h3>
+    <p class="help">Envie o arquivo de planejamento da Raffinée do jeito que ele é (ex.: <b>Planejamento 2027.xlsx</b>). O sistema lê as abas de metas, vendedores, clientes e o histórico mensal de caixas e kg por produto. Nada precisa ser reorganizado.</p>
+    <label class="drop" id="drop-plan" for="plan-arq" style="display:block;margin-top:12px;cursor:pointer"><b>Arraste o arquivo de planejamento aqui</b> ou clique para escolher<br><span class="help">.xlsx</span><input id="plan-arq" type="file" accept=".xlsx,.xls" hidden></label>
+    ${x ? `<div class="mk" style="margin-top:14px">
+      <div class="card"><div class="l">Meta anual (empresa)</div><div class="v">${F.brlC(somaM.v)}</div><div class="help">${F.kg(somaM.k)}</div></div>
+      <div class="card"><div class="l">Metas por vendedor</div><div class="v">${p.vendedores.length}</div></div>
+      <div class="card"><div class="l">Metas por cliente</div><div class="v">${p.clientes.length}</div></div>
+      <div class="card"><div class="l">Metas por produto (kg)</div><div class="v">${p.metas.produtos.length}</div></div>
+      <div class="card"><div class="l">Histórico mensal</div><div class="v">${F.kg(somaH.k)}</div><div class="help">${F.brlC(somaH.v)} em ${new Set(x.historico.map(h => h.data.slice(5, 7))).size} meses</div></div>
+      <div class="card"><div class="l">Produtos novos no cadastro</div><div class="v">${x.produtos.length}</div></div></div>
+      <div class="form" style="margin-top:14px"><div class="f"><label for="plan-am">As metas são de</label><select id="plan-am">${anos.map(a => `<option ${a === p.anoMeta ? 'selected' : ''}>${a}</option>`).join('')}</select></div>
+        <div class="f"><label for="plan-ah">O histórico (caixas e kg) é de</label><select id="plan-ah">${anos.map(a => `<option ${a === p.anoHist ? 'selected' : ''}>${a}</option>`).join('')}</select></div></div>
+      <p class="help">As metas de ${p.anoMeta} já existentes são substituídas pelas do arquivo. O histórico entra como resumo mensal por produto (sem cliente e sem vendedor) e é trocado automaticamente pelas vendas reais quando o relatório de vendas por item for importado.</p>
+      <button class="btn pri" onclick="VIEWS.lancamentos.enviarPlan()">${ic('up')}Importar planejamento</button>` : ''}</div>`; },
   imp() { const p = this.prev; return `<div class="card"><h3>${ic('up')}Importar vendas (CSV ou Excel)</h3>
     <p class="help">Uma linha por item vendido. Colunas reconhecidas: DATA, PEDIDO, COD_CLIENTE, CLIENTE, VENDEDOR, COD_PRODUTO, PRODUTO, CANAL, QTD, KG, VALOR. Nomes parecidos (ex.: “Razão social”, “Quantidade”, “Valor total”) também são aceitos. Pedidos já importados não são duplicados.</p>
     <label class="drop" id="drop" for="imp-arq" style="display:block;margin-top:12px;cursor:pointer"><b>Arraste o arquivo aqui</b> ou clique para escolher<br><span class="help">.csv, .xlsx ou .xls</span><input id="imp-arq" type="file" accept=".csv,.xlsx,.xls,.txt" hidden></label>
-    ${p ? `<div class="mk" style="margin-top:14px"><div class="card"><div class="l">Linhas encontradas</div><div class="v">${F.int(p.total)}</div></div><div class="card"><div class="l">Válidas</div><div class="v up">${F.int(p.ok.length)}</div></div><div class="card"><div class="l">Com erro</div><div class="v ${p.err.length ? 'dn' : ''}">${F.int(p.err.length)}</div></div><div class="card"><div class="l">Faturamento</div><div class="v">${F.brlC(p.ok.reduce((a, x) => a + x.valor, 0))}</div></div><div class="card"><div class="l">Kg</div><div class="v">${F.kg(p.ok.reduce((a, x) => a + x.kg, 0))}</div></div><div class="card"><div class="l">Período</div><div class="v" style="font-size:14px">${F.data(p.min)} a ${F.data(p.max)}</div></div></div>
+    ${p ? `<div class="mk" style="margin-top:14px"><div class="card"><div class="l">Linhas encontradas</div><div class="v">${F.int(p.total)}</div></div><div class="card"><div class="l">Válidas</div><div class="v up">${F.int(p.ok.length)}</div></div><div class="card"><div class="l">Com erro</div><div class="v ${p.err.length ? 'dn' : ''}">${F.int(p.err.length)}</div></div><div class="card"><div class="l">Faturamento</div><div class="v">${F.brlC(p.ok.reduce((a, x) => a + x.valor, 0))}</div></div><div class="card"><div class="l">Kg</div><div class="v">${F.kg(p.ok.reduce((a, x) => a + x.kg, 0))}</div></div><div class="card"><div class="l">Período</div><div class="v" style="font-size:14px">${p.ok.length ? F.data(p.min) + ' a ' + F.data(p.max) : '—'}</div></div></div>
       ${p.faltam.length ? `<div class="alerta">${ic('alerta')}<div>Colunas não encontradas: <b>${p.faltam.join(', ')}</b>.</div></div>` : ''}
       ${p.err.length ? `<details style="margin-top:10px"><summary class="help">Ver linhas com erro</summary><div class="tbl-wrap" style="max-height:220px;margin-top:8px"><table class="t"><thead><tr><th>Linha</th><th>Problema</th></tr></thead><tbody>${p.err.slice(0, 200).map(e => `<tr><td>${e.l}</td><td>${F.esc(e.m)}</td></tr>`).join('')}</tbody></table></div></details>` : ''}
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:14px"><div class="f"><label for="imp-modo">Modo</label><select id="imp-modo"><option value="acrescentar">Acrescentar à base</option><option value="substituir">Substituir toda a base de vendas</option></select></div>
@@ -1154,6 +1239,10 @@ VIEWS.lancamentos = { t: 'Lançamentos / Importações', s: 'Alimentação da ba
     return `<div class="card"><h3>${ic('clientes')}Cadastros<span class="dir"><span class="seg">${[['clientes', 'Cliente'], ['produtos', 'Produto'], ['vendedores', 'Vendedor']].map(([k, n]) => `<button class="${t === k ? 'on' : ''}" onclick="VIEWS.lancamentos.cadTipo='${k}';UI.render()">${n}</button>`).join('')}</span></span></h3>
     <form id="fc" class="form">${campos.map(([c, n]) => `<div class="f"><label for="c-${c}">${n}</label>${c === 'STATUS' ? `<select id="c-${c}"><option>ATIVO</option><option>INATIVO</option></select>` : `<input id="c-${c}" ${c.startsWith('COD') ? 'required' : ''}>`}</div>`).join('')}<div style="grid-column:1/-1"><button class="btn pri" type="submit">${ic('check')}Salvar cadastro</button> <span class="help">Se o código já existir, o cadastro é atualizado.</span></div></form></div>`; },
   pos() {
+    const pl = document.getElementById('plan-arq'); if (pl) { const lePlan = async f => { try { UI.toast('Lendo o planejamento…'); this.plan = await PLAN.ler(f); UI.render(); } catch (e) { UI.toast('Não foi possível ler o arquivo: ' + e.message, 6000); } };
+      pl.onchange = () => pl.files[0] && lePlan(pl.files[0]); const d = document.getElementById('drop-plan');
+      d.ondragover = e => { e.preventDefault(); d.classList.add('over'); }; d.ondragleave = () => d.classList.remove('over'); d.ondrop = e => { e.preventDefault(); d.classList.remove('over'); e.dataTransfer.files[0] && lePlan(e.dataTransfer.files[0]); };
+      const am = document.getElementById('plan-am'), ah = document.getElementById('plan-ah'); if (am) { am.onchange = () => { this.plan.anoMeta = +am.value; UI.render(); }; ah.onchange = () => { this.plan.anoHist = +ah.value; UI.render(); }; } }
     const inp = document.getElementById('imp-arq'); if (inp) { inp.onchange = () => inp.files[0] && this.ler(inp.files[0]); const d = document.getElementById('drop');
       d.ondragover = e => { e.preventDefault(); d.classList.add('over'); }; d.ondragleave = () => d.classList.remove('over'); d.ondrop = e => { e.preventDefault(); d.classList.remove('over'); e.dataTransfer.files[0] && this.ler(e.dataTransfer.files[0]); }; }
     const fv = document.getElementById('fv'); if (fv) fv.onsubmit = async e => { e.preventDefault(); const x = { data: lkv('v-data'), pedido: lkv('v-ped'), cliente: lkv('v-cli'), vendedor: lkv('v-vend'), produto: lkv('v-prod'), canal: lkv('v-canal'), qtd: DB.num(lkv('v-qtd')), kg: DB.num(lkv('v-kg')), valor: DB.num(lkv('v-val')) };
@@ -1180,6 +1269,12 @@ VIEWS.lancamentos = { t: 'Lançamentos / Importações', s: 'Alimentação da ba
       if (pr.length) err.push({ l: i + 1, m: pr.join(', ') }); else { ok.push(x); if (x.data < min) min = x.data; if (x.data > max) max = x.data; } }
     this.prev = { total: ok.length + err.length, ok, err, faltam, min, max }; UI.render();
   },
+  async enviarPlan() { const x = PLAN.montar(this.plan, this.plan.anoMeta, this.plan.anoHist);
+    try { UI.toast('Gravando o planejamento na base de dados…', 8000); await API.post('importarPlanejamento', x);
+      if (CFG.demo) PLAN.aplicaLocal(x); else await APP.recarregar();
+      Object.assign(ENG.f, { aIni: x.anoHist, mIni: 1, ano: x.anoHist, mFim: Math.max(1, ...x.historico.map(h => +h.data.slice(5, 7))) });
+      this.plan = null; UI.filtros(); UI.toast(`Planejamento importado: ${F.int(x.metas.length)} metas, ${F.int(x.clientes.length)} clientes e ${F.int(x.historico.length)} linhas de histórico.`, 6000); UI.go('visao');
+    } catch (e) { UI.toast('Erro ao importar: ' + e.message, 7000); } },
   csvParse(t, sep) { const out = []; let row = [], cur = '', q = false; for (let i = 0; i < t.length; i++) { const c = t[i]; if (q) { if (c === '"' && t[i + 1] === '"') { cur += '"'; i++; } else if (c === '"') q = false; else cur += c; } else if (c === '"') q = true; else if (c === sep) { row.push(cur); cur = ''; } else if (c === '\n' || c === '\r') { if (c === '\r' && t[i + 1] === '\n') i++; row.push(cur); out.push(row); row = []; cur = ''; } else cur += c; } if (cur || row.length) { row.push(cur); out.push(row); } return out; },
   async enviar() { const p = this.prev; const modo = document.getElementById('imp-modo').value;
     try { let grav = 0, dup = 0; for (let i = 0; i < p.ok.length; i += 2000) { const r = await API.post('importarVendas', { linhas: p.ok.slice(i, i + 2000), modo: i === 0 ? modo : 'acrescentar' }); grav += r?.gravadas ?? p.ok.slice(i, i + 2000).length; dup += r?.duplicadas ?? 0; UI.toast(`Importando… ${Math.min(i + 2000, p.ok.length)} de ${p.ok.length}`); }
@@ -1188,6 +1283,110 @@ VIEWS.lancamentos = { t: 'Lançamentos / Importações', s: 'Alimentação da ba
       this.prev = null; UI.render(); } catch (e) { UI.toast('Erro na importação: ' + e.message, 6000); } },
   aplicaLocal(arr) { arr.forEach(x => DB.vendas.push({ d: x.data, y: +x.data.slice(0, 4), m: +x.data.slice(5, 7), ped: x.pedido, cc: String(x.cod_cliente || x.cliente), cli: x.cliente, vend: x.vendedor, cp: String(x.cod_produto || x.produto), prod: x.produto, canal: x.canal, qtd: x.qtd, kg: x.kg, val: x.valor }));
     const cad = new Map(DB.clientes.map(c => [String(c.COD_CLIENTE), c])); arr.forEach(x => { const k = String(x.cod_cliente || x.cliente); if (!cad.has(k)) { const c = { COD_CLIENTE: k, CLIENTE: x.cliente, VENDEDOR: x.vendedor, CANAL: x.canal, STATUS: 'ATIVO' }; cad.set(k, c); DB.clientes.push(c); } }); DB.indices(); UI.filtros(); }
+};
+
+/* ---------------- PLAN (importador da planilha de planejamento da Raffinée) ----------------
+ * Lê o arquivo do jeito que ele é: abas de metas (empresa + produtos), vendedores, clientes e o
+ * histórico mensal de caixas/kg por produto. Nada precisa ser reorganizado antes. */
+const PLAN = {
+  MES: ['janeiro','fevereiro','marco','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'],
+  norm: v => String(v ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim(),
+  num: v => typeof v === 'number' ? v : DB.num(v),
+  async xlsx() { if (window.XLSX) return; await new Promise((ok, no) => { const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'; s.onload = ok; s.onerror = () => no(new Error('Não foi possível carregar o leitor de Excel')); document.head.appendChild(s); }); },
+  aba(wb, teste) { const n = wb.SheetNames.find(x => teste(this.norm(x))); return n ? XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1, raw: true, defval: null }) : null; },
+  /** Linha com os nomes dos meses → { row, cols[12] } */
+  meses(arr) {
+    for (let r = 0; r < Math.min(arr.length, 30); r++) { const cols = Array(12).fill(-1); (arr[r] || []).forEach((v, c) => { const i = this.MES.indexOf(this.norm(v)); if (i >= 0 && cols[i] < 0) cols[i] = c; });
+      if (cols.filter(c => c >= 0).length >= 6) return { row: r, cols }; }
+    return null;
+  },
+  linhaCom(arr, txt, ini = 0) { for (let r = ini; r < arr.length; r++) if ((arr[r] || []).some(v => this.norm(v) === txt)) return r; return -1; },
+  col0(arr, txt, ini = 0) { for (let r = ini; r < arr.length; r++) if (this.norm((arr[r] || [])[0]) === txt) return r; return -1; },
+
+  lerMetas(arr) { // aba "meta 2026": REAIS e TONELADAS da empresa + kg por código de produto
+    const out = { empresa: [], produtos: [] }; const M = this.meses(arr); if (!M) return out;
+    const rR = this.col0(arr, 'reais'), rT = this.col0(arr, 'toneladas');
+    const rTv = rT >= 0 ? rT + 1 : -1;
+    M.cols.forEach((c, i) => { if (c < 0) return; out.empresa.push({ mes: i + 1, valor: rR >= 0 ? this.num(arr[rR][c]) : 0, kg: rTv >= 0 ? this.num((arr[rTv] || [])[c]) : 0 }); });
+    const rC = this.col0(arr, 'codigo');
+    if (rC >= 0) for (let r = rC + 1; r < arr.length; r++) { const cod = (arr[r] || [])[0]; if (cod === null || cod === '') continue;
+      const kg = M.cols.map(c => c >= 0 ? this.num(arr[r][c]) : 0); if (kg.some(Boolean)) out.produtos.push({ cod: String(cod).trim(), kg }); }
+    return out;
+  },
+  lerVendedores(arr) { const out = []; const M = this.meses(arr); if (!M) return out; const rC = this.col0(arr, 'codigo'); if (rC < 0) return out;
+    for (let r = rC + 1; r < arr.length; r++) { const n = (arr[r] || [])[0]; if (!n || typeof n !== 'string') continue;
+      const val = M.cols.map(c => c >= 0 ? this.num(arr[r][c]) : 0); if (val.some(Boolean)) out.push({ nome: n.trim().toUpperCase(), val }); }
+    return out;
+  },
+  lerClientes(arr, vendedores) { const out = []; const M = this.meses(arr); if (!M) return out;
+    const h = arr[M.row].map(v => this.norm(v)); const cCod = h.indexOf('cod'), cNome = h.indexOf('cliente'), cVend = h.indexOf('vendedor'), cUf = h.indexOf('uf');
+    const nomesV = vendedores.map(v => v.nome); const vend = n => { const x = String(n || '').trim().toUpperCase(); if (!x) return ''; return nomesV.find(v => v === x) || nomesV.find(v => v.startsWith(x)) || x; };
+    const abertura = { nome: 'ABERTURA DE NOVOS CLIENTES', cod: 'PL-ABERTURA', vend: '', uf: '', val: Array(12).fill(0) };
+    for (let r = M.row + 1; r < arr.length; r++) { const l = arr[r] || []; const nome = String(l[cNome] ?? '').trim(); const nn = this.norm(nome);
+      if (!nome || nn === 'demais' || nn.startsWith('total')) continue;
+      const val = M.cols.map(c => c >= 0 ? this.num(l[c]) : 0); if (!val.some(Boolean)) continue;
+      if (nn === 'abertura') { val.forEach((v, i) => abertura.val[i] += v); continue; }
+      const codRaw = cCod >= 0 ? l[cCod] : null; const cod = codRaw !== null && codRaw !== '' ? String(codRaw).trim() : 'PL-' + nn.replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40);
+      out.push({ nome, cod, vend: cVend >= 0 ? vend(l[cVend]) : '', uf: cUf >= 0 ? String(l[cUf] ?? '') : '', val }); }
+    if (abertura.val.some(Boolean)) out.push(abertura);
+    return out;
+  },
+  /** Aba de histórico: caixas e kg por produto, mês a mês, e R$ total de cada mês */
+  lerHistorico(arr) { const M = this.meses(arr); if (!M) return null;
+    const rTipo = this.linhaCom(arr, 'kilos', M.row); if (rTipo < 0) return null; const rAno = rTipo + 1; const tipo = arr[rTipo].map(v => this.norm(v)), anos = arr[rAno] || [];
+    const anoH = anos.find(v => typeof v === 'number' && v > 2000 && v < 2100) || null;
+    const meses = M.cols.map((c, i) => { if (c < 0) return null;
+      const cx = tipo.findIndex((t, j) => j >= c && t === 'caixas'), kg = tipo.findIndex((t, j) => j >= c && t === 'kilos');
+      let valor = 0; for (let r = M.row + 1; r < rTipo; r++) { const v = (arr[r] || [])[c]; if (typeof v === 'number' && v > 0) { valor = v; break; } }
+      return { mes: i + 1, cx, kg, valor }; }).filter(Boolean);
+    const prods = [];
+    for (let r = rAno + 1; r < arr.length; r++) { const cod = (arr[r] || [])[0]; if (cod === null || cod === '' || (typeof cod === 'string' && isNaN(+cod))) continue;
+      prods.push({ cod: String(cod).trim(), meses: meses.map(m => ({ mes: m.mes, cx: m.cx >= 0 ? this.num(arr[r][m.cx]) : 0, kg: m.kg >= 0 ? this.num(arr[r][m.kg]) : 0 })) }); }
+    return { anoH, meses, prods };
+  },
+  async ler(file) {
+    await this.xlsx();
+    const wb = XLSX.read(await file.arrayBuffer(), { type: 'array' });
+    const metas = this.lerMetas(this.aba(wb, n => n.startsWith('meta')) || []);
+    const vendedores = this.lerVendedores(this.aba(wb, n => n.startsWith('vendedor')) || []);
+    const clientes = this.lerClientes(this.aba(wb, n => n.startsWith('cliente')) || [], vendedores);
+    const hist = this.lerHistorico(this.aba(wb, n => /^\d{4}/.test(n)) || []);
+    const anoArq = +((file.name.match(/20\d\d/) || [])[0]) || null;
+    return { arquivo: file.name, metas, vendedores, clientes, hist, anoMeta: hist?.anoH || anoArq || new Date().getFullYear(), anoHist: hist?.anoH || new Date().getFullYear() };
+  },
+  /** Monta o que será gravado na base */
+  montar(p, anoMeta, anoHist) {
+    const metas = [];
+    p.metas.empresa.forEach(m => metas.push({ ano: anoMeta, mes: m.mes, tipo: 'EMPRESA', chave: 'EMPRESA', valor: m.valor, kg: m.kg }));
+    p.metas.produtos.forEach(x => x.kg.forEach((kg, i) => kg && metas.push({ ano: anoMeta, mes: i + 1, tipo: 'PRODUTO', chave: x.cod, valor: 0, kg })));
+    p.vendedores.forEach(v => v.val.forEach((val, i) => val && metas.push({ ano: anoMeta, mes: i + 1, tipo: 'VENDEDOR', chave: v.nome, valor: val, kg: 0 })));
+    p.clientes.forEach(c => c.val.forEach((val, i) => val && metas.push({ ano: anoMeta, mes: i + 1, tipo: 'CLIENTE', chave: c.nome, valor: val, kg: 0 })));
+    const codsProd = new Set([...p.metas.produtos.map(x => x.cod), ...(p.hist?.prods || []).map(x => x.cod)]);
+    const existe = new Set(DB.produtos.map(x => String(x.COD_PRODUTO)));
+    const produtos = [...codsProd].filter(c => !existe.has(c)).map(c => ({ COD_PRODUTO: c, PRODUTO: 'Cód. ' + c, CATEGORIA: '', LINHA: '', PESO_KG: '', STATUS: 'ATIVO' }));
+    const clientes = p.clientes.map(c => ({ COD_CLIENTE: c.cod, CLIENTE: c.nome, VENDEDOR: c.vend, CANAL: '', CIDADE: '', UF: c.uf, STATUS: 'ATIVO' }));
+    const vendedores = p.vendedores.map((v, i) => ({ COD_VENDEDOR: 'V' + String(i + 1).padStart(2, '0'), VENDEDOR: v.nome, STATUS: 'ATIVO' }));
+    const nome = new Map([...DB.produtos.map(x => [String(x.COD_PRODUTO), x.PRODUTO]), ...produtos.map(x => [x.COD_PRODUTO, x.PRODUTO])]);
+    const historico = [];
+    if (p.hist) p.hist.meses.forEach(m => { const kgMes = p.hist.prods.reduce((a, x) => a + (x.meses.find(y => y.mes === m.mes)?.kg || 0), 0);
+      p.hist.prods.forEach(x => { const y = x.meses.find(z => z.mes === m.mes); if (!y || (!y.kg && !y.cx)) return;
+        historico.push({ data: `${anoHist}-${String(m.mes).padStart(2, '0')}-01`, pedido: `PLAN-${anoHist}${String(m.mes).padStart(2, '0')}-${x.cod}`, cod_cliente: '', cliente: '', vendedor: '', cod_produto: x.cod, produto: nome.get(x.cod) || 'Cód. ' + x.cod, canal: '', qtd: y.cx, kg: y.kg, valor: kgMes && m.valor ? +(m.valor * y.kg / kgMes).toFixed(2) : 0 }); }); });
+    return { anoMeta, anoHist, metas, produtos, clientes, vendedores, historico };
+  },
+  /** Espelho local do que o backend faz (modo demonstração) */
+  aplicaLocal(x) {
+    DB.metas = DB.metas.filter(m => m.ano !== x.anoMeta).concat(x.metas.map(m => ({ ano: m.ano, mes: m.mes, tipo: m.tipo, chave: String(m.chave), val: m.valor, kg: m.kg })));
+    const up = (arr, key, regs, sobrescreve) => regs.forEach(r => { const i = arr.findIndex(a => String(a[key]) === String(r[key])); if (i < 0) arr.push(r); else if (sobrescreve) arr[i] = { ...arr[i], ...r }; });
+    up(DB.produtos, 'COD_PRODUTO', x.produtos, false); up(DB.clientes, 'COD_CLIENTE', x.clientes, true); up(DB.vendedores, 'VENDEDOR', x.vendedores, false);
+    const reais = new Set(DB.vendas.filter(v => v.orig !== 'PLANEJAMENTO' && v.y === x.anoHist).map(v => v.m));
+    DB.vendas = DB.vendas.filter(v => !(v.orig === 'PLANEJAMENTO' && v.y === x.anoHist)).concat(x.historico.filter(h => !reais.has(+h.data.slice(5, 7))).map(h => ({ d: h.data, y: +h.data.slice(0, 4), m: +h.data.slice(5, 7), ped: h.pedido, cc: '', cli: '', vend: '', cp: h.cod_produto, prod: h.produto, canal: '', qtd: h.qtd, kg: h.kg, val: h.valor, orig: 'PLANEJAMENTO' })));
+    DB.carregar({ vendas: { cols: ['DATA','PEDIDO','COD_CLIENTE','CLIENTE','VENDEDOR','COD_PRODUTO','PRODUTO','CANAL','QTD','KG','VALOR','ORIGEM'], rows: DB.vendas.map(v => [v.d, v.ped, v.cc, v.cli, v.vend, v.cp, v.prod, v.canal, v.qtd, v.kg, v.val, v.orig]) },
+      clientes: { cols: Object.keys(DB.clientes[0] || { COD_CLIENTE: 0 }), rows: DB.clientes.map(c => Object.values(c)) },
+      produtos: { cols: ['COD_PRODUTO','PRODUTO','CATEGORIA','LINHA','PESO_KG','STATUS'], rows: DB.produtos.map(p => [p.COD_PRODUTO, p.PRODUTO, p.CATEGORIA, p.LINHA, p.PESO_KG, p.STATUS]) },
+      vendedores: { cols: ['COD_VENDEDOR','VENDEDOR','STATUS'], rows: DB.vendedores.map(v => [v.COD_VENDEDOR, v.VENDEDOR, v.STATUS]) },
+      metas: { cols: ['ANO','MES','TIPO','CHAVE','META_VALOR','META_KG'], rows: DB.metas.map(m => [m.ano, m.mes, m.tipo, m.chave, m.val, m.kg]) },
+      arquivos: { cols: ['ID','TIPO','NOME','PERIODO','DATA_GERACAO','LINK_DRIVE','OBS'], rows: DB.arquivos.map(a => [a.ID, a.TIPO, a.NOME, a.PERIODO, a.DATA_GERACAO, a.LINK_DRIVE, a.OBS]) } });
+  }
 };
 
 /* === Configurações === */
@@ -1211,7 +1410,7 @@ VIEWS.config = { t: 'Configurações', s: 'Conexão, versão e aparência', semF
 const DECK = {
   abrir() {
     const k = ENG.calc(); K = k; const f = ENG.f; const tit = document.getElementById('ap-titulo')?.value || 'Resultado Comercial';
-    const per = `Jan a ${MESES[f.mFim - 1]} / ${f.ano}`; const esc = [f.vend && 'Vendedor ' + f.vend, f.cli, f.prod, f.canal].filter(Boolean).join(' · ') || 'Empresa';
+    const per = ENG.rotulo(); const esc = [f.vend && 'Vendedor ' + f.vend, f.cli, f.prod, f.canal].filter(Boolean).join(' · ') || 'Empresa';
     const logoV = 'assets/raffinee-logo-vinho.png', logoB = 'assets/raffinee-logo.png';
     const cab = (eb, h) => `<div class="sh"><div><div class="eyebrow">${eb}</div><h2>${h}</h2></div><img class="lg" src="${logoV}" alt="Raffinée"></div>`;
     const rod = n => `<div class="sf"><span>Raffinée Analytics · ${per} · ${F.esc(esc)}</span><span>${n} / 8</span></div>`;
@@ -1222,17 +1421,17 @@ const DECK = {
     if (k.acel > 0) acoes.push(`Acelerar o ritmo em <b>${F.pct(k.acel, 0)}</b>: vender <b>${F.brlC(k.ritmo)}/mês</b> até dezembro.`);
     if (pend.length) acoes.push(`Contatar os clientes em atraso de maior peso: <b>${pend.slice(0, 3).map(c => F.esc(c.cli)).join(', ')}</b>.`);
     const vb = k.vends.filter(v => v.ating !== null && v.ating < .9); if (vb.length) acoes.push(`Plano de recuperação com <b>${vb.map(v => F.esc(v.k)).join(', ')}</b> (abaixo de 90% da meta).`);
-    const pq = k.prods.filter(p => p.gR !== null && p.gR < 0).slice(0, 2); if (pq.length) acoes.push(`Revisar estratégia de <b>${pq.map(p => F.esc(p.k)).join(' e ')}</b>, em queda contra ${f.ano - 1}.`);
+    const pq = k.prods.filter(p => p.gR !== null && p.gR < 0).slice(0, 2); if (pq.length) acoes.push(`Revisar estratégia de <b>${pq.map(p => F.esc(p.k)).join(' e ')}</b>, em queda contra ${ENG.antLbl()}.`);
     const pc = k.prods.filter(p => p.cls[0] === 'Crescimento saudável').slice(0, 2); if (pc.length) acoes.push(`Levar <b>${pc.map(p => F.esc(p.k)).join(' e ')}</b> para clientes que ainda não compram.`);
     const slides = [
       `<div class="slide capa"><img class="lgc" src="${logoB}" alt="Raffinée"><div class="eyebrow" style="color:#D9BD8C">${F.esc(document.getElementById('ap-tipo')?.value || 'Reunião de resultados')}</div><h2>${F.esc(tit)}</h2><div style="font-size:2cqw;margin-top:1cqw;color:#E9D9CD">${per} · ${F.esc(esc)}</div><div class="ss">Para adoçar todos os negócios.</div></div>`,
       `<div class="slide">${cab('01 · Resumo executivo', 'Onde estamos')}<div class="sb"><div class="kg">
-        ${kb('Faturamento acumulado', F.brlC(k.c.val), `${F.var(k.gR)} vs. ${f.ano - 1}`, clsVar(k.gR))}${kb('Atingimento da meta', F.pct(k.ating), k.gap !== null ? `Gap ${F.brlC(k.gap)}` : 'sem meta', k.gap >= 0 ? 'up' : 'dn')}${kb('Volume acumulado', F.kg(k.c.kg), `${F.var(k.gK)} vs. ${f.ano - 1}`, clsVar(k.gK))}
-        ${kb('R$/kg médio', F.brl2(k.rkg), `${F.var(k.rkgA ? k.rkg / k.rkgA - 1 : null)} vs. ${f.ano - 1}`, clsVar(k.rkg - k.rkgA))}${kb('Clientes ativos (90 dias)', F.int(k.at), `${F.var(k.atAnt ? k.at / k.atAnt - 1 : null)} vs. ${f.ano - 1}`, clsVar(k.at - k.atAnt))}${kb('Cobertura da carteira', F.pct(k.cart.cobertura), `${cc.comprou} de ${k.cart.total - cc.inativo} compraram no mês`, '')}</div></div>${rod(1)}</div>`,
+        ${kb('Faturamento acumulado', F.brlC(k.c.val), `${F.var(k.gR)} vs. ${ENG.antLbl()}`, clsVar(k.gR))}${kb('Atingimento da meta', F.pct(k.ating), k.gap !== null ? `Gap ${F.brlC(k.gap)}` : 'sem meta', k.gap >= 0 ? 'up' : 'dn')}${kb('Volume acumulado', F.kg(k.c.kg), `${F.var(k.gK)} vs. ${ENG.antLbl()}`, clsVar(k.gK))}
+        ${kb('R$/kg médio', F.brl2(k.rkg), `${F.var(k.rkgA ? k.rkg / k.rkgA - 1 : null)} vs. ${ENG.antLbl()}`, clsVar(k.rkg - k.rkgA))}${kb('Clientes ativos (90 dias)', F.int(k.at), `${F.var(k.atAnt ? k.at / k.atAnt - 1 : null)} vs. ${ENG.antLbl()}`, clsVar(k.at - k.atAnt))}${kb('Cobertura da carteira', F.pct(k.cart.cobertura), `${cc.comprou} de ${k.cart.total - cc.inativo} compraram no mês`, '')}</div></div>${rod(1)}</div>`,
       `<div class="slide">${cab('02 · Objetivo x realizado', k.ating !== null ? `${F.pct(k.ating)} da meta acumulada` : 'Evolução acumulada')}<div class="sb"><div class="cv"><canvas id="dk-acum"></canvas></div>
         <div style="width:30%;display:flex;flex-direction:column;gap:1cqw;font-size:1.5cqw">${k.metaAno !== null ? `<div>Meta anual<div class="big" style="font-size:3cqw">${F.brlC(k.metaAno)}</div></div><div>Falta vender<div class="big" style="font-size:3cqw">${F.brlC(k.falta)}</div></div><div>Ritmo necessário<div class="big" style="font-size:3cqw">${F.brlC(k.ritmo)}<span style="font-size:1.5cqw">/mês</span></div></div><div style="color:#7C6861">Média dos últimos 3 meses: <b>${F.brlC(k.media3)}/mês</b></div>` : '<div>Sem meta cadastrada para este recorte.</div>'}</div></div>${rod(2)}</div>`,
       `<div class="slide">${cab('03 · Crescimento', `${F.var(k.gR)} em R$ · ${F.var(k.gK)} em kg`)}<div class="sb"><div class="cv"><canvas id="dk-mes"></canvas></div>
-        <div style="width:30%;font-size:1.5cqw;display:flex;flex-direction:column;gap:1.2cqw"><div>${f.ano}<div class="big" style="font-size:3cqw">${F.brlC(k.c.val)}</div></div><div>${f.ano - 1} (mesmo período)<div class="big" style="font-size:3cqw;color:#B8905A">${F.brlC(k.p.val)}</div></div><div style="color:#7C6861">${Math.abs((k.gR ?? 0) - (k.gK ?? 0)) > .03 ? ((k.gR ?? 0) > (k.gK ?? 0) ? 'Parte do crescimento veio de preço e mix: o R$ cresceu mais que o volume.' : 'O volume cresceu mais que a receita: atenção ao preço médio.') : 'Receita e volume cresceram na mesma proporção.'}</div></div></div>${rod(3)}</div>`,
+        <div style="width:30%;font-size:1.5cqw;display:flex;flex-direction:column;gap:1.2cqw"><div>${ENG.rotulo()}<div class="big" style="font-size:3cqw">${F.brlC(k.c.val)}</div></div><div>${ENG.rotulo(1)}<div class="big" style="font-size:3cqw;color:#B8905A">${F.brlC(k.p.val)}</div></div><div style="color:#7C6861">${Math.abs((k.gR ?? 0) - (k.gK ?? 0)) > .03 ? ((k.gR ?? 0) > (k.gK ?? 0) ? 'Parte do crescimento veio de preço e mix: o R$ cresceu mais que o volume.' : 'O volume cresceu mais que a receita: atenção ao preço médio.') : 'Receita e volume cresceram na mesma proporção.'}</div></div></div>${rod(3)}</div>`,
       `<div class="slide">${cab('04 · Clientes', `${F.pct(k.cart.cobertura, 0)} de cobertura da carteira`)}<div class="sb"><div style="width:32%;display:flex;flex-direction:column;gap:1cqw;font-size:1.6cqw">
         ${Object.entries(ST).map(([s, [n, , c]]) => `<div style="display:flex;justify-content:space-between;background:#F7EFE6;border-radius:.8cqw;padding:1cqw 1.4cqw"><span><span style="display:inline-block;width:1.2cqw;height:1.2cqw;border-radius:50%;background:${c};margin-right:.8cqw"></span>${n}</span><b>${cc[s]}</b></div>`).join('')}
         <div style="color:#7C6861;font-size:1.3cqw">Top 5 clientes concentram ${F.pct(k.conc5, 0)} do faturamento.</div></div>
@@ -1245,11 +1444,11 @@ const DECK = {
     document.getElementById('overlay').innerHTML = `<div class="deck"><div class="bar-t"><b>Apresentação</b><span>${per} · ${F.esc(esc)}</span><span class="sp"></span><button class="btn sm" onclick="DECK.pdf()">${ic('down')}Gerar PDF</button><button class="btn sm" onclick="DECK.fechar()">Fechar</button></div><div class="stage">${slides.join('')}</div></div>`;
     document.addEventListener('keydown', DECK._esc);
     const n = { plugins: { legend: { display: false } }, animation: false };
-    const fm = f.mFim; let a = 0, b = 0;
+    let a = 0, b = 0;
     this.ch = [];
     const mk = (id, cfg) => { const el = document.getElementById(id); if (el && window.Chart) this.ch.push(new Chart(el, cfg)); };
-    mk('dk-acum', { type: 'line', data: { labels: MESES.slice(0, fm), datasets: [{ data: k.mensal.slice(0, fm).map(x => (a += x.val)), borderColor: '#5A1E24', backgroundColor: 'rgba(90,30,36,.12)', fill: true, borderWidth: 3, tension: .25, pointRadius: 3 }, ...(k.serieMeta ? [{ data: k.serieMeta.slice(0, fm).map(x => (b += x.val)), borderColor: '#B8905A', borderDash: [6, 5], borderWidth: 2, tension: .25, pointRadius: 2 }] : [])] }, options: { ...n, scales: { y: { ticks: { callback: v => F.brlC(v), color: '#7C6861' }, grid: { color: '#EFE4D9' } }, x: { ticks: { color: '#7C6861' }, grid: { display: false } } } } });
-    mk('dk-mes', { type: 'bar', data: { labels: MESES.slice(0, fm), datasets: [{ data: k.mensalAnt.slice(0, fm).map(x => x.val), backgroundColor: '#E6D5C3', borderRadius: 4 }, { data: k.mensal.slice(0, fm).map(x => x.val), backgroundColor: '#5A1E24', borderRadius: 4 }] }, options: { ...n, scales: { y: { ticks: { callback: v => F.brlC(v), color: '#7C6861' }, grid: { color: '#EFE4D9' } }, x: { ticks: { color: '#7C6861' }, grid: { display: false } } } } });
+    mk('dk-acum', { type: 'line', data: { labels: k.lbl, datasets: [{ data: k.mensal.map(x => (a += x.val)), borderColor: '#5A1E24', backgroundColor: 'rgba(90,30,36,.12)', fill: true, borderWidth: 3, tension: .25, pointRadius: 3 }, ...(k.serieMeta ? [{ data: k.serieMeta.map(x => (b += x.val)), borderColor: '#B8905A', borderDash: [6, 5], borderWidth: 2, tension: .25, pointRadius: 2 }] : [])] }, options: { ...n, scales: { y: { ticks: { callback: v => F.brlC(v), color: '#7C6861' }, grid: { color: '#EFE4D9' } }, x: { ticks: { color: '#7C6861' }, grid: { display: false } } } } });
+    mk('dk-mes', { type: 'bar', data: { labels: k.lbl, datasets: [{ data: k.mensalAnt.map(x => x.val), backgroundColor: '#E6D5C3', borderRadius: 4 }, { data: k.mensal.map(x => x.val), backgroundColor: '#5A1E24', borderRadius: 4 }] }, options: { ...n, scales: { y: { ticks: { callback: v => F.brlC(v), color: '#7C6861' }, grid: { color: '#EFE4D9' } }, x: { ticks: { color: '#7C6861' }, grid: { display: false } } } } });
     const ps = k.prods.filter(p => p.gR !== null && p.gK !== null); const mx = Math.max(...ps.map(p => p.val), 1);
     mk('dk-mx', { type: 'bubble', data: { datasets: [{ data: ps.map(p => ({ x: p.gK * 100, y: p.gR * 100, r: 4 + Math.sqrt(p.val / mx) * 16 })), backgroundColor: ps.map(p => p.gR >= 0 && p.gK >= 0 ? 'rgba(90,30,36,.8)' : p.gR >= 0 ? 'rgba(201,146,46,.8)' : 'rgba(194,59,53,.7)') }] }, options: { ...n, scales: { x: { title: { display: true, text: 'Crescimento em kg', color: '#7C6861' }, ticks: { callback: v => v + '%', color: '#7C6861' } }, y: { title: { display: true, text: 'Crescimento em R$', color: '#7C6861' }, ticks: { callback: v => v + '%', color: '#7C6861' } } } } });
   },
@@ -1277,8 +1476,9 @@ const APP = {
     if (CFG.demo) { DB.carregar(DEMO.gerar()); DB.fonte = 'dados de exemplo'; carregou = true; }
     const hoje = new Date();
     const fs = c.filtros; const temAno = y => DB.anos.includes(y);
-    ENG.f = fs && temAno(fs.ano) ? { ...ENG.f, ...fs } : { ano: DB.anos[0] || hoje.getFullYear(), mFim: 0, vend: '', cli: '', prod: '', canal: '' };
-    if (!ENG.f.mFim) ENG.f.mFim = ENG.f.ano === hoje.getFullYear() ? hoje.getMonth() + 1 : 12;
+    ENG.f = fs && fs.aIni && temAno(fs.ano) ? { ...ENG.f, ...fs } : { aIni: 0, mIni: 1, ano: hoje.getFullYear(), mFim: 0, vend: '', cli: '', prod: '', canal: '' };
+    if (!ENG.f.mFim) { const ult = DB.maxData && +DB.maxData.slice(0, 4) === ENG.f.ano ? +DB.maxData.slice(5, 7) : 0; ENG.f.mFim = ult || (ENG.f.ano === hoje.getFullYear() ? hoje.getMonth() + 1 : 12); }
+    if (!ENG.f.aIni) { ENG.f.aIni = ENG.f.ano; ENG.f.mIni = 1; }
     if (carregou) { UI.filtros(); UI.rota(); document.getElementById('loading').hidden = true; }
     if (!CFG.demo) { try { await this.recarregar(); document.getElementById('loading').hidden = true; if (!carregou) UI.rota(); }
       catch (e) { document.getElementById('loading').hidden = true; if (!carregou) { DB.carregar(DEMO.gerar()); DB.fonte = 'dados de exemplo'; UI.filtros(); UI.rota(); } UI.toast('Não foi possível ler a base de dados: ' + e.message + '. Confira em Configurações.', 7000); } }

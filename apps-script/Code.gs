@@ -13,7 +13,7 @@
  *   na MESMA implantação (a URL não muda).
  */
 
-var VERSAO_BACKEND = '1.0.0';
+var VERSAO_BACKEND = '1.1.0';
 
 var ABAS = {
   BASE_VENDAS: ['ID_VENDA', 'DATA', 'ANO', 'MES', 'PEDIDO', 'COD_CLIENTE', 'CLIENTE', 'VENDEDOR', 'COD_PRODUTO', 'PRODUTO', 'CANAL', 'QTD', 'KG', 'VALOR', 'ORIGEM', 'IMPORTADO_EM'],
@@ -28,7 +28,7 @@ var ABAS = {
 
 // Colunas das tabelas lidas pelo index (ordem do JSON enviado)
 var LEITURA = {
-  vendas:     { aba: 'BASE_VENDAS', cols: ['DATA', 'PEDIDO', 'COD_CLIENTE', 'CLIENTE', 'VENDEDOR', 'COD_PRODUTO', 'PRODUTO', 'CANAL', 'QTD', 'KG', 'VALOR'] },
+  vendas:     { aba: 'BASE_VENDAS', cols: ['DATA', 'PEDIDO', 'COD_CLIENTE', 'CLIENTE', 'VENDEDOR', 'COD_PRODUTO', 'PRODUTO', 'CANAL', 'QTD', 'KG', 'VALOR', 'ORIGEM'] },
   clientes:   { aba: 'CLIENTES',   cols: ABAS.CLIENTES },
   produtos:   { aba: 'PRODUTOS',   cols: ABAS.PRODUTOS },
   vendedores: { aba: 'VENDEDORES', cols: ABAS.VENDEDORES },
@@ -110,6 +110,7 @@ function doPost(e) {
       case 'importarVendas':  r = importarVendas_(p.linhas || [], p.modo || 'acrescentar', p.origem || 'IMPORTACAO'); break;
       case 'lancarVenda':     r = importarVendas_([p], 'acrescentar', 'MANUAL'); break;
       case 'salvarMetas':     r = salvarMetas_(p); break;
+      case 'importarPlanejamento': r = importarPlanejamento_(p); break;
       case 'salvarCadastro':  r = salvarCadastro_(p.tipo, p.registro); break;
       case 'salvarArquivo':   r = salvarArquivo_(p); break;
       case 'excluirArquivo':  r = excluirArquivo_(p.id); break;
@@ -187,6 +188,12 @@ function importarVendas_(linhas, modo, origem) {
       num_(x.qtd), num_(x.kg), num_(x.valor), origem, agora
     ]);
   });
+  // Vendas reais substituem o resumo do planejamento nos meses em que chegaram
+  if (origem !== 'PLANEJAMENTO' && novas.length) {
+    var mesesNovos = {};
+    novas.forEach(function (l) { mesesNovos[l[2] + '|' + l[3]] = true; });
+    removerLinhas_(sh, function (l) { return String(l[14]) === 'PLANEJAMENTO' && mesesNovos[Number(l[2]) + '|' + Number(l[3])]; });
+  }
   if (novas.length) sh.getRange(sh.getLastRow() + 1, 1, novas.length, novas[0].length).setValues(novas);
   log_('VENDAS', origem + ': ' + novas.length + ' linhas gravadas, ' + duplicadas + ' duplicadas ignoradas' + (modo === 'substituir' ? ' (base substituída)' : ''));
   return { gravadas: novas.length, duplicadas: duplicadas };
@@ -208,6 +215,81 @@ function salvarMetas_(p) {
   if (manter.length) sh.getRange(2, 1, manter.length, 7).setValues(manter);
   log_('METAS', tipo + ' / ' + chave + ' / ' + ano + ' atualizada');
   return { linhas: manter.length };
+}
+
+/**
+ * Planilha de planejamento da Raffinée (lida e montada pelo index).
+ * payload: { anoMeta, anoHist, metas[], produtos[], clientes[], vendedores[], historico[] }
+ */
+function importarPlanejamento_(p) {
+  var anoMeta = Number(p.anoMeta), anoHist = Number(p.anoHist), agora = new Date();
+
+  // Metas do ano: substitui tudo daquele ano
+  var shM = aba_('METAS');
+  var metas = shM.getLastRow() > 1 ? shM.getRange(2, 1, shM.getLastRow() - 1, 7).getValues() : [];
+  metas = metas.filter(function (l) { return Number(l[0]) !== anoMeta; });
+  (p.metas || []).forEach(function (m) { metas.push([anoMeta, Number(m.mes), String(m.tipo).toUpperCase(), String(m.chave), num_(m.valor), num_(m.kg), agora]); });
+  if (shM.getLastRow() > 1) shM.getRange(2, 1, shM.getLastRow() - 1, 7).clearContent();
+  if (metas.length) shM.getRange(2, 1, metas.length, 7).setValues(metas);
+
+  // Cadastros
+  var nProd = 0, nCli = 0, nVend = 0;
+  (p.produtos || []).forEach(function (r) { if (inserirSeNaoExiste_('PRODUTOS', 0, r)) nProd++; });
+  nCli = upsertLote_('CLIENTES', 0, p.clientes || []);
+  (p.vendedores || []).forEach(function (r) { if (inserirSeNaoExiste_('VENDEDORES', 1, r)) nVend++; });
+
+  // Histórico mensal por produto (resumo): troca o anterior do mesmo ano, sem mexer em meses que já têm vendas reais
+  var shV = aba_('BASE_VENDAS');
+  var reais = {};
+  if (shV.getLastRow() > 1) shV.getRange(2, 1, shV.getLastRow() - 1, 15).getValues().forEach(function (l) {
+    if (Number(l[2]) === anoHist && String(l[14]) !== 'PLANEJAMENTO') reais[Number(l[3])] = true;
+  });
+  removerLinhas_(shV, function (l) { return String(l[14]) === 'PLANEJAMENTO' && Number(l[2]) === anoHist; });
+  var hist = (p.historico || []).filter(function (h) { return !reais[Number(String(h.data).slice(5, 7))]; });
+  var r = hist.length ? importarVendas_(hist, 'acrescentar', 'PLANEJAMENTO') : { gravadas: 0 };
+
+  log_('PLANEJAMENTO', 'Metas ' + anoMeta + ': ' + (p.metas || []).length + ' | clientes ' + nCli + ' | produtos novos ' + nProd + ' | vendedores novos ' + nVend + ' | histórico ' + anoHist + ': ' + r.gravadas + ' linhas');
+  return { metas: (p.metas || []).length, clientes: nCli, produtosNovos: nProd, vendedoresNovos: nVend, historico: r.gravadas };
+}
+
+/** Insere o registro só se a coluna-chave (índice) ainda não existir na aba */
+function inserirSeNaoExiste_(nomeAba, idx, reg) {
+  var sh = aba_(nomeAba), cab = ABAS[nomeAba];
+  var linha = cab.map(function (c) { return reg[c] !== undefined ? reg[c] : ''; });
+  var n = sh.getLastRow();
+  var ex = n > 1 ? sh.getRange(2, idx + 1, n - 1, 1).getValues().map(function (l) { return String(l[0]).trim().toUpperCase(); }) : [];
+  if (ex.indexOf(String(linha[idx]).trim().toUpperCase()) >= 0) return false;
+  sh.appendRow(linha);
+  return true;
+}
+
+/** Atualiza ou insere vários registros de uma vez, pela coluna-chave (índice) */
+function upsertLote_(nomeAba, idx, regs) {
+  if (!regs.length) return 0;
+  var sh = aba_(nomeAba), cab = ABAS[nomeAba], n = sh.getLastRow();
+  var vals = n > 1 ? sh.getRange(2, 1, n - 1, cab.length).getValues() : [];
+  var pos = {}; vals.forEach(function (l, i) { pos[String(l[idx]).trim().toUpperCase()] = i; });
+  regs.forEach(function (reg) {
+    var linha = cab.map(function (c) { return reg[c] !== undefined ? reg[c] : ''; });
+    var k = String(linha[idx]).trim().toUpperCase();
+    if (k in pos) vals[pos[k]] = vals[pos[k]].map(function (v, j) { return linha[j] !== '' ? linha[j] : v; });
+    else { pos[k] = vals.length; vals.push(linha); }
+  });
+  sh.getRange(2, 1, vals.length, cab.length).setValues(vals);
+  return regs.length;
+}
+
+/** Reescreve a aba sem as linhas em que remover(linha) for verdadeiro */
+function removerLinhas_(sh, remover) {
+  var n = sh.getLastRow(); if (n < 2) return 0;
+  var w = sh.getLastColumn();
+  var vals = sh.getRange(2, 1, n - 1, w).getValues();
+  var manter = vals.filter(function (l) { return !remover(l); });
+  var tirou = vals.length - manter.length;
+  if (!tirou) return 0;
+  sh.getRange(2, 1, n - 1, w).clearContent();
+  if (manter.length) sh.getRange(2, 1, manter.length, w).setValues(manter);
+  return tirou;
 }
 
 /** tipo: clientes | produtos | vendedores — upsert pela 1ª coluna (código) */
