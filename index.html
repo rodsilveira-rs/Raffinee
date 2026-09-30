@@ -1,0 +1,1299 @@
+<!doctype html>
+<html lang="pt-BR" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Raffinée Analytics</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&family=Parisienne&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+/* Layout: sidebar vinho fixa + palco creme com filtros no topo; no celular vira app com barra inferior */
+:root{
+  --vinho:#5A1E24; --vinho-2:#7B2E36; --vinho-esc:#2C1214; --vinho-esc-2:#40191C;
+  --bg:#F5EEE6; --card:#FFFCF8; --card-2:#FBF5EE; --linha:#EDE1D4; --bege:#E6D5C3;
+  --champ:#B8905A; --champ-2:#D9BD8C;
+  --txt:#2B1A1B; --txt-2:#7C6861; --txt-3:#A8958D;
+  --ok:#2E8656; --ok-bg:#E3F1E8; --bad:#C23B35; --bad-bg:#F8E1DE; --warn:#C9922E; --warn-bg:#F7EBD4;
+  --rosa:#F4E1DD; --sombra:0 1px 2px rgba(60,20,24,.05),0 6px 20px rgba(60,20,24,.06);
+  --f-disp:'Fraunces',Georgia,'Times New Roman',serif;
+  --f-body:'Manrope','Segoe UI',system-ui,-apple-system,sans-serif;
+  --f-script:'Parisienne','Brush Script MT',cursive;
+  --r:14px;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#1A1011; --card:#241617; --card-2:#2B1B1C; --linha:#3A2627; --bege:#4A3230;
+  --champ:#D2AE78; --champ-2:#E3C699; --txt:#F3E7DF; --txt-2:#BFA9A0; --txt-3:#8C7770;
+  --vinho:#C0616A; --vinho-2:#D98089; --ok:#5BC08A; --ok-bg:#1F3328; --bad:#E7716A; --bad-bg:#3C2020; --warn:#E0B060; --warn-bg:#3A2E1A;
+  --rosa:#3A2224; --sombra:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.25); color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#1A1011; --card:#241617; --card-2:#2B1B1C; --linha:#3A2627; --bege:#4A3230;
+  --champ:#D2AE78; --champ-2:#E3C699; --txt:#F3E7DF; --txt-2:#BFA9A0; --txt-3:#8C7770;
+  --vinho:#C0616A; --vinho-2:#D98089; --ok:#5BC08A; --ok-bg:#1F3328; --bad:#E7716A; --bad-bg:#3C2020; --warn:#E0B060; --warn-bg:#3A2E1A;
+  --rosa:#3A2224; --sombra:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.25); color-scheme:dark }
+
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--txt);font-family:var(--f-body);font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--champ);outline-offset:2px}
+.num,td.n,.kv b{font-variant-numeric:tabular-nums}
+[hidden]{display:none!important}
+
+/* ---------- Shell ---------- */
+.app{display:grid;grid-template-columns:248px minmax(0,1fr);min-height:100vh}
+.side{position:sticky;top:0;height:100vh;background:linear-gradient(180deg,#3A1518 0%,#2A1113 55%,#1F0C0E 100%);color:#F2E6DC;display:flex;flex-direction:column;padding:22px 14px 18px;overflow:auto}
+.side .logo{display:block;padding:6px 10px 22px}
+.side .logo img{width:176px;height:auto;display:block}
+.logo-txt{font-family:var(--f-script);font-size:38px;color:#fff;line-height:1}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav a{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;color:#E9D9CD;text-decoration:none;font-weight:500;font-size:13.5px;border:1px solid transparent}
+.nav a svg{width:18px;height:18px;flex:none;opacity:.9}
+.nav a:hover{background:rgba(255,255,255,.05)}
+.nav a.on{background:linear-gradient(90deg,rgba(201,164,106,.28),rgba(201,164,106,.08));border-color:rgba(217,189,140,.45);color:#fff}
+.nav .sep{height:1px;background:rgba(255,255,255,.08);margin:10px 8px}
+.side .tag{margin-top:auto;padding:24px 10px 4px;font-family:var(--f-script);font-size:23px;line-height:1.15;color:#E9D9CD;opacity:.9}
+.side .ver{padding:8px 10px 0;font-size:11px;color:#B59C90}
+
+.main{min-width:0;padding:22px 26px 40px;display:flex;flex-direction:column;gap:18px}
+.top{display:flex;flex-wrap:wrap;align-items:flex-end;gap:16px 20px;justify-content:space-between}
+.top h1{font-family:var(--f-disp);font-weight:700;font-size:36px;margin:0;letter-spacing:-.5px;color:var(--txt);text-wrap:balance;line-height:1.05}
+.top .sub{color:var(--txt-2);font-size:15px;margin-top:4px}
+.filtros{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end}
+.fl{display:flex;flex-direction:column;gap:3px;min-width:118px}
+.fl label{font-size:11px;font-weight:600;color:var(--txt-2);letter-spacing:.3px;padding-left:2px}
+.fl select{appearance:none;background:var(--card) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%237C6861' fill='none' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat right 10px center;border:1px solid var(--linha);border-radius:10px;padding:8px 28px 8px 11px;font-size:13px;max-width:190px;box-shadow:var(--sombra)}
+.btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--linha);background:var(--card);border-radius:10px;padding:9px 14px;font-weight:600;font-size:13px;color:var(--txt)}
+.btn:hover{border-color:var(--champ)}
+.btn.pri{background:var(--vinho);border-color:var(--vinho);color:#fff;box-shadow:0 6px 18px rgba(90,30,36,.25)}
+.btn.pri:hover{background:var(--vinho-2)}
+.btn.sm{padding:6px 10px;font-size:12px}
+.btn svg{width:16px;height:16px}
+.demo-pill{display:inline-flex;align-items:center;gap:6px;background:var(--warn-bg);color:var(--warn);border-radius:99px;padding:3px 10px;font-size:11.5px;font-weight:700;margin-left:10px;vertical-align:middle}
+
+/* ---------- Cards ---------- */
+.card{background:var(--card);border:1px solid var(--linha);border-radius:var(--r);box-shadow:var(--sombra);padding:16px 18px;min-width:0}
+.card h3{display:flex;align-items:center;gap:9px;margin:0 0 12px;font-size:15.5px;font-weight:700;color:var(--txt)}
+.card h3 svg{width:19px;height:19px;color:var(--vinho)}
+.card h3 .dir{margin-left:auto;font-size:12px;font-weight:500;color:var(--txt-2)}
+.grid{display:grid;gap:16px}
+.kpis{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:12px}
+.kpi{padding:14px 14px 8px;display:flex;flex-direction:column;gap:2px;cursor:default;position:relative}
+.kpi .lb{display:flex;align-items:flex-start;gap:8px;font-size:12.5px;font-weight:600;color:var(--txt-2);min-height:34px;line-height:1.3}
+.kpi .lb svg{width:22px;height:22px;flex:none;color:var(--vinho)}
+.kpi .v{font-size:27px;font-weight:800;letter-spacing:-.6px;color:var(--txt);white-space:nowrap;font-variant-numeric:tabular-nums;margin-top:4px}
+.kpi .v small{font-size:15px;font-weight:700;letter-spacing:0}
+.kpi .d{font-size:12px;color:var(--txt-2);display:flex;align-items:center;gap:4px;white-space:nowrap}
+.up{color:var(--ok)!important;font-weight:700}.dn{color:var(--bad)!important;font-weight:700}.nt{color:var(--warn)!important;font-weight:700}
+.spark{height:30px;margin-top:4px}
+.row2{display:grid;grid-template-columns:minmax(0,1.75fr) minmax(0,1fr);gap:16px}
+.row4{display:grid;grid-template-columns:1.1fr 1fr 1fr 1.05fr;gap:16px}
+.chart-box{position:relative;height:230px}
+.row4 .donut{width:128px;height:128px}.row4 .donut-wrap{flex-wrap:nowrap}.row4 .donut .c b{font-size:24px}
+.card h3 .dir.solo{display:block;margin:0}
+.leg{display:flex;gap:16px;font-size:12px;color:var(--txt-2);align-items:center}
+.leg i{display:inline-block;width:22px;height:0;border-top:2.5px solid var(--vinho);vertical-align:middle;margin-right:6px}
+.leg i.d{border-top:2px dashed var(--champ)}
+
+.kv{display:grid;grid-template-columns:1fr auto;gap:0;font-size:14px}
+.kv>div{padding:7px 10px;border-bottom:1px solid var(--linha)}
+.kv>div:nth-child(even){text-align:right}
+.kv b{font-size:16px}
+.kv .hl{background:var(--rosa)}
+.kv .hl b{color:var(--vinho)}
+.ritmo-big{display:flex;justify-content:space-between;align-items:baseline;padding:12px 10px 4px;flex-wrap:wrap;gap:6px}
+.ritmo-big .t{font-weight:700}
+.ritmo-big b{font-size:22px;color:var(--vinho);font-weight:800}
+.alerta{display:flex;gap:10px;align-items:flex-start;background:var(--rosa);border-radius:10px;padding:10px 12px;margin-top:10px;color:var(--vinho);font-size:13px}
+.alerta.ok{background:var(--ok-bg);color:var(--ok)}
+.alerta svg{width:18px;height:18px;flex:none;margin-top:1px}
+
+.donut-wrap{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.donut{position:relative;width:150px;height:150px;flex:none}
+.donut .c{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none}
+.donut .c b{font-size:28px;font-weight:800;line-height:1}
+.donut .c span{font-size:12px;color:var(--txt-2)}
+.dleg{display:flex;flex-direction:column;gap:9px;font-size:12.5px;min-width:0}
+.dleg button{display:flex;gap:9px;align-items:flex-start;background:none;border:0;padding:0;text-align:left;color:var(--txt)}
+.dleg i{width:11px;height:11px;border-radius:50%;margin-top:3px;flex:none}
+.dleg b{display:block;font-size:13.5px}
+
+.seg{display:inline-flex;background:var(--card-2);border:1px solid var(--linha);border-radius:9px;padding:3px;gap:2px}
+.seg button{border:0;background:none;padding:5px 12px;border-radius:7px;font-size:12px;font-weight:600;color:var(--txt-2)}
+.seg button.on{background:var(--vinho);color:#fff}
+.bars{display:flex;flex-direction:column;gap:9px;margin-top:10px}
+.bar{display:grid;grid-template-columns:minmax(0,150px) minmax(0,1fr) auto;align-items:center;gap:10px;font-size:12.5px}
+.bar .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar .tr{height:16px;background:var(--card-2);border-radius:3px;overflow:hidden}
+.bar .fi{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--vinho),var(--vinho-2))}
+.bar .vl{font-weight:600;color:var(--txt-2);font-variant-numeric:tabular-nums;min-width:62px;text-align:right}
+.bar.click{cursor:pointer}.bar.click:hover .nm{color:var(--vinho);text-decoration:underline}
+
+.atencao{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.at{display:flex;align-items:center;gap:12px;background:var(--rosa);border-radius:12px;padding:12px 14px;border:0;text-align:left;color:var(--txt);font-size:13px;line-height:1.35}
+.at:hover{filter:brightness(.98)}
+.at .ic{width:30px;height:30px;flex:none;color:var(--vinho)}
+.at .ic svg{width:100%;height:100%}
+.at b{color:var(--vinho)}
+.at .go{margin-left:auto;color:var(--vinho);font-size:20px}
+.at.ok{background:var(--ok-bg)}.at.ok .ic,.at.ok b{color:var(--ok)}
+.at.warn{background:var(--warn-bg)}.at.warn .ic,.at.warn b{color:var(--warn)}
+
+.rodape{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;color:var(--txt-3);font-size:12px;padding-top:4px}
+.rodape .s{font-family:var(--f-script);font-size:20px;color:var(--vinho)}
+
+/* ---------- Tabelas ---------- */
+.tbl-wrap{overflow-x:auto;border:1px solid var(--linha);border-radius:12px}
+table.t{width:100%;border-collapse:collapse;font-size:13px;min-width:640px}
+.t th{position:sticky;top:0;background:var(--card-2);text-align:left;font-size:11.5px;font-weight:700;color:var(--txt-2);letter-spacing:.3px;padding:10px 12px;border-bottom:1px solid var(--linha);white-space:nowrap;cursor:pointer;user-select:none}
+.t th.n,.t td.n{text-align:right}
+.t td{padding:9px 12px;border-bottom:1px solid var(--linha);white-space:nowrap}
+.t tr:last-child td{border-bottom:0}
+.t tbody tr:hover td{background:var(--card-2)}
+.t tr.click{cursor:pointer}
+.t tfoot td{font-weight:800;background:var(--card-2)}
+.pill{display:inline-block;padding:2px 9px;border-radius:99px;font-size:11.5px;font-weight:700;white-space:nowrap}
+.p-ok{background:var(--ok-bg);color:var(--ok)}.p-bad{background:var(--bad-bg);color:var(--bad)}.p-warn{background:var(--warn-bg);color:var(--warn)}.p-neu{background:var(--card-2);color:var(--txt-2);border:1px solid var(--linha)}.p-vin{background:var(--rosa);color:var(--vinho)}
+.mini{display:inline-block;width:70px;height:6px;background:var(--card-2);border-radius:3px;vertical-align:middle;margin-right:8px;overflow:hidden}
+.mini i{display:block;height:100%}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+.toolbar input[type=search]{flex:1;min-width:180px;border:1px solid var(--linha);border-radius:10px;padding:8px 12px;background:var(--card)}
+
+/* ---------- Gauge ---------- */
+.gauge{display:flex;flex-direction:column;align-items:center}
+.gauge svg{width:100%;max-width:260px;height:auto;display:block}
+.gauge .gv{font-size:34px;font-weight:800;letter-spacing:-1px;margin-top:2px;font-variant-numeric:tabular-nums}
+.gauge .gl{font-size:12px;color:var(--txt-2);margin-top:2px}
+.vcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+.vcard{cursor:pointer;transition:transform .15s}
+.vcard:hover{transform:translateY(-2px);border-color:var(--champ)}
+.vcard .gauge svg{max-width:190px}
+.vcard .gauge .gv{font-size:26px;margin-top:0}
+.vcard .nm{font-weight:800;font-size:16px}
+.vcard .ln{display:flex;justify-content:space-between;font-size:12.5px;color:var(--txt-2);padding:3px 0}
+.vcard .ln b{color:var(--txt)}
+
+/* ---------- Drawer / Modal ---------- */
+.scrim{position:fixed;inset:0;background:rgba(30,10,12,.45);z-index:40;display:flex;justify-content:flex-end}
+.drawer{width:min(760px,100%);height:100%;background:var(--bg);overflow:auto;padding:22px 24px 40px;box-shadow:-10px 0 40px rgba(0,0,0,.2);display:flex;flex-direction:column;gap:14px}
+.drawer .hd{display:flex;align-items:flex-start;gap:12px;justify-content:space-between}
+.drawer h2{font-family:var(--f-disp);margin:0;font-size:26px}
+.drawer .x{border:0;background:var(--card);border:1px solid var(--linha);border-radius:10px;width:36px;height:36px;font-size:18px}
+.mk{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
+.mk .card{padding:10px 12px}
+.mk .l{font-size:11.5px;color:var(--txt-2);font-weight:600}
+.mk .v{font-size:19px;font-weight:800;font-variant-numeric:tabular-nums}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{background:var(--card);border:1px solid var(--linha);border-radius:99px;padding:4px 10px;font-size:12px}
+.chip.op{background:var(--warn-bg);border-color:transparent;color:var(--warn);font-weight:600}
+
+/* ---------- Formulários ---------- */
+.form{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
+.f{display:flex;flex-direction:column;gap:4px}
+.f label{font-size:12px;font-weight:600;color:var(--txt-2)}
+.f input,.f select,.f textarea{border:1px solid var(--linha);background:var(--card);border-radius:10px;padding:9px 11px}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid var(--linha);padding-bottom:0}
+.tabs button{border:0;background:none;padding:10px 14px;font-weight:700;color:var(--txt-2);border-bottom:2px solid transparent;margin-bottom:-1px}
+.tabs button.on{color:var(--vinho);border-bottom-color:var(--vinho)}
+.drop{border:2px dashed var(--bege);border-radius:14px;padding:30px;text-align:center;background:var(--card-2);color:var(--txt-2)}
+.drop.over{border-color:var(--vinho);background:var(--rosa)}
+.metas-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.metas-grid .card{padding:10px 12px}
+.metas-grid input{width:100%;border:1px solid var(--linha);border-radius:8px;padding:6px 8px;background:var(--card);margin-top:4px;font-variant-numeric:tabular-nums}
+.help{font-size:12.5px;color:var(--txt-2);max-width:70ch}
+
+.toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--vinho-esc);color:#fff;padding:11px 18px;border-radius:12px;z-index:80;font-weight:600;box-shadow:0 10px 30px rgba(0,0,0,.25);max-width:calc(100% - 32px)}
+.upd{position:fixed;top:calc(12px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);z-index:70;background:var(--champ);color:#2B1A1B;border-radius:99px;padding:8px 8px 8px 16px;display:flex;gap:10px;align-items:center;font-weight:700;box-shadow:0 8px 24px rgba(0,0,0,.2)}
+.upd button{border:0;background:#2B1A1B;color:#fff;border-radius:99px;padding:6px 12px;font-weight:700}
+.loading{position:fixed;inset:0;background:var(--bg);z-index:90;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:var(--txt-2)}
+.loading .sp{width:34px;height:34px;border:3px solid var(--linha);border-top-color:var(--vinho);border-radius:50%;animation:gira .8s linear infinite}
+@keyframes gira{to{transform:rotate(360deg)}}
+
+/* ---------- Arquivos ---------- */
+.files{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+.file{display:flex;gap:12px;align-items:flex-start;text-decoration:none;color:var(--txt)}
+.file .ic{width:40px;height:48px;border-radius:6px;background:var(--rosa);color:var(--vinho);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;flex:none}
+.file .nm{font-weight:700;line-height:1.3}
+.file .mt{font-size:12px;color:var(--txt-2)}
+
+/* ---------- Apresentação ---------- */
+.deck{position:fixed;inset:0;z-index:60;background:#140809;display:flex;flex-direction:column}
+.deck .bar-t{display:flex;align-items:center;gap:10px;padding:10px 16px;color:#EADBD0;flex-wrap:wrap}
+.deck .bar-t .sp{flex:1}
+.deck .stage{flex:1;overflow:auto;display:flex;flex-direction:column;align-items:center;gap:24px;padding:12px 16px 40px}
+.slide{flex:none;width:min(1100px,100%);aspect-ratio:16/9;background:#FFFCF8;color:#2B1A1B;border-radius:6px;position:relative;overflow:hidden;display:flex;flex-direction:column;padding:3.4% 4% 3%;box-shadow:0 20px 60px rgba(0,0,0,.4);max-width:100%;container-type:inline-size}
+.slide .sh{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.slide .eyebrow{font-size:1.25cqw;letter-spacing:.2em;text-transform:uppercase;color:#B8905A;font-weight:700}
+.slide h2{font-family:var(--f-disp);font-size:3.3cqw;margin:.4cqw 0 0;color:#5A1E24;line-height:1.05}
+.slide .lg{width:11cqw;opacity:.95}
+.slide .sb{flex:1;display:flex;gap:2.4cqw;margin-top:2cqw;min-height:0}
+.slide .sf{position:absolute;left:4%;right:4%;bottom:2.2%;display:flex;justify-content:space-between;font-size:1.05cqw;color:#A8958D}
+.slide .big{font-size:5.4cqw;font-weight:800;color:#5A1E24;letter-spacing:-.1cqw;line-height:1}
+.slide .kg{display:grid;grid-template-columns:repeat(3,1fr);gap:1.4cqw;flex:1}
+.slide .kg>div{background:#F7EFE6;border-radius:1cqw;padding:1.6cqw 1.8cqw}
+.slide .kg .l{font-size:1.3cqw;color:#7C6861;font-weight:600}
+.slide .kg .v{font-size:3.1cqw;font-weight:800;color:#2B1A1B;margin:.4cqw 0}
+.slide .kg .d{font-size:1.2cqw;font-weight:700}
+.slide ul.sl{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:1.1cqw;font-size:1.65cqw}
+.slide ul.sl li{display:flex;gap:1cqw;background:#F7EFE6;border-radius:.8cqw;padding:1.1cqw 1.4cqw}
+.slide ul.sl li b{color:#5A1E24}
+.slide table{width:100%;border-collapse:collapse;font-size:1.3cqw}
+.slide table th{text-align:left;color:#7C6861;border-bottom:.15cqw solid #E6D5C3;padding:.6cqw .8cqw;font-size:1.1cqw;text-transform:uppercase;letter-spacing:.05em}
+.slide table td{padding:.65cqw .8cqw;border-bottom:.1cqw solid #EFE4D9;font-variant-numeric:tabular-nums}
+.slide table td.n,.slide table th.n{text-align:right}
+.slide .cv{position:relative;flex:1;min-width:0}
+.slide.capa{background:linear-gradient(135deg,#3A1518,#1F0C0E);color:#F2E6DC;justify-content:center}
+.slide.capa h2{color:#fff;font-size:5.2cqw}
+.slide.capa .lgc{width:26cqw;margin-bottom:3cqw}
+.slide.capa .ss{font-family:var(--f-script);font-size:3cqw;color:#D9BD8C;margin-top:2cqw}
+
+/* ---------- Mobile ---------- */
+.mtop,.mnav{display:none}
+@media (max-width:1380px){ .kpis{grid-template-columns:repeat(4,minmax(0,1fr))} .row4{grid-template-columns:repeat(2,minmax(0,1fr))} .atencao{grid-template-columns:repeat(2,minmax(0,1fr))} }
+@media (max-width:1060px){ .row2{grid-template-columns:minmax(0,1fr)} }
+@media (max-width:860px){
+  .app{grid-template-columns:minmax(0,1fr)}
+  .side{position:fixed;inset:0 auto 0 0;width:270px;z-index:50;transform:translateX(-102%);transition:transform .2s}
+  .side.open{transform:none}
+  .mtop{display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:30;background:#2C1214;padding:calc(10px + env(safe-area-inset-top,0px)) 16px 10px;color:#fff}
+  .mtop img{height:34px}
+  .mtop button{background:none;border:0;color:#fff;width:36px;height:36px;display:flex;align-items:center;justify-content:center}
+  .mtop svg{width:22px;height:22px}
+  .main{padding:16px 16px 100px}
+  .top h1{font-size:28px}
+  .filtros{display:none}
+  .filtros.open{display:flex}
+  .fl{flex:1 1 calc(50% - 8px);min-width:0}.fl select{max-width:none;width:100%}
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .row4,.atencao{grid-template-columns:minmax(0,1fr)}
+  .kpi:last-child{grid-column:1/-1}.kpi .d{white-space:normal}.kpi .v{font-size:24px}
+  .card h3{flex-wrap:wrap}.card h3 .dir{margin-left:0;flex-basis:100%}
+  .row4 .donut-wrap{flex-wrap:wrap}
+  .mnav{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;left:0;right:0;bottom:0;z-index:30;background:#2C1214;padding:6px 4px calc(6px + env(safe-area-inset-bottom,0px))}
+  .mnav a{display:flex;flex-direction:column;align-items:center;gap:3px;color:#CBB6AA;text-decoration:none;font-size:10.5px;font-weight:600;padding:4px}
+  .mnav a svg{width:21px;height:21px}
+  .mnav a.on{color:#fff}
+  .mfil{display:inline-flex!important}
+  .drawer{padding:18px 16px 40px}
+}
+.mfil{display:none}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* ---------- Impressão (PDF da apresentação) ---------- */
+@media print{
+  @page{size:1280px 720px;margin:0}
+  body.printing .app,body.printing .mnav,body.printing .mtop,body.printing .deck .bar-t,body.printing .toast{display:none!important}
+  body.printing .deck{position:static;background:none}
+  body.printing .deck .stage{padding:0;gap:0;overflow:visible;display:block}
+  body.printing .slide{width:1280px;height:720px;aspect-ratio:auto;border-radius:0;box-shadow:none;page-break-after:always;break-after:page;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+}
+</style>
+</head>
+<body>
+
+<div class="loading" id="loading"><div class="sp"></div><div>Carregando a base de dados…</div></div>
+
+<header class="mtop">
+  <button aria-label="Abrir menu" onclick="UI.menu(true)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+  <img src="assets/raffinee-logo.png" alt="Raffinée" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'logo-txt',textContent:'Raffinée',style:'font-size:28px'}))">
+  <button aria-label="Pontos de atenção" onclick="UI.go('visao');setTimeout(()=>document.getElementById('bloco-atencao')?.scrollIntoView({behavior:'smooth'}),50)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 1112 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 003.4 0"/></svg></button>
+</header>
+
+<div class="app">
+  <aside class="side" id="side">
+    <a class="logo" href="#visao" aria-label="Raffinée — Visão Executiva"><img src="assets/raffinee-logo.png" alt="Raffinée" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'logo-txt',textContent:'Raffinée'}))"></a>
+    <nav class="nav" id="nav"></nav>
+    <div class="tag">Mais que sobremesas,<br>momentos especiais.</div>
+    <div class="ver" id="ver-side"></div>
+  </aside>
+
+  <main class="main">
+    <div class="top">
+      <div>
+        <h1 id="titulo">Visão Executiva</h1>
+        <div class="sub" id="subtitulo"></div>
+      </div>
+      <button class="btn mfil" onclick="document.getElementById('filtros').classList.toggle('open')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M7 12h10M10 18h4"/></svg>Filtros</button>
+      <div class="filtros" id="filtros">
+        <div class="fl"><label for="f-per">Período</label><select id="f-per"></select></div>
+        <div class="fl"><label for="f-vend">Vendedor</label><select id="f-vend"></select></div>
+        <div class="fl"><label for="f-cli">Cliente</label><select id="f-cli"></select></div>
+        <div class="fl"><label for="f-prod">Produto</label><select id="f-prod"></select></div>
+        <div class="fl"><label for="f-canal">Canal</label><select id="f-canal"></select></div>
+        <button class="btn pri" onclick="DECK.abrir()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M12 16v4M8 20h8"/></svg>Gerar apresentação</button>
+      </div>
+    </div>
+    <div id="view"></div>
+    <div class="rodape">
+      <span id="rod-info"></span>
+      <span class="s">Para adoçar todos os negócios.</span>
+    </div>
+  </main>
+</div>
+
+<nav class="mnav" id="mnav"></nav>
+<div id="overlay"></div>
+
+<script>
+'use strict';
+/* =================================================================
+ * RAFFINÉE ANALYTICS — index
+ * Módulos: CFG (config) · API (Apps Script) · DEMO (dados exemplo)
+ *          DB (dados normalizados) · ENG (cálculos/KPIs) · UI · VIEWS · DECK
+ * ================================================================= */
+const APP_VERSION = '1.0.0';
+const HISTORICO = [
+  { v: '1.0.0', d: '29/09/2026', t: 'Primeira versão: Visão Executiva, Objetivo x Realizado, Clientes, Vendedores, Produtos, Cobertura, Metas, Apresentações, Central de Arquivos e Importação.' }
+];
+
+/* ---------------- Ícones ---------------- */
+const IC = {
+  visao:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+  alvo:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
+  clientes:'<circle cx="9" cy="8" r="3.5"/><path d="M2 20c0-3.6 3-6 7-6s7 2.4 7 6"/><circle cx="17.5" cy="9" r="2.5"/><path d="M17 14c2.8 0 5 1.8 5 4.5"/>',
+  vend:'<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/>',
+  prod:'<path d="M12 2l9 5v10l-9 5-9-5V7z"/><path d="M3 7l9 5 9-5M12 12v10"/>',
+  pin:'<path d="M12 22s7-7.2 7-12.5A7 7 0 005 9.5C5 14.8 12 22 12 22z"/><circle cx="12" cy="9.5" r="2.5"/>',
+  meta:'<path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 6-7"/><path d="M16 7h4v4"/>',
+  apres:'<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M12 16v4M8 20h8"/>',
+  arq:'<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h6"/>',
+  up:'<path d="M17 18a4.5 4.5 0 00-.5-9A6 6 0 005 10.5 4 4 0 006 18"/><path d="M12 12v9M8.5 15.5L12 12l3.5 3.5"/>',
+  cfg:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/>',
+  moedas:'<ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v4c0 1.7 3.1 3 7 3s7-1.3 7-3V6M5 10v4c0 1.7 3.1 3 7 3s7-1.3 7-3v-4M5 14v4c0 1.7 3.1 3 7 3s7-1.3 7-3v-4"/>',
+  cresc:'<path d="M3 20h18M6 16v-3M11 16V9M16 16V6M20 4l-4 3-3-2-5 4"/>',
+  caixa:'<path d="M3 7l9-4 9 4v10l-9 4-9-4z"/><path d="M3 7l9 4 9-4M12 11v10M7.5 5l9 4"/>',
+  pizza:'<path d="M12 3a9 9 0 109 9h-9z"/><path d="M15 3.5A9 9 0 0120.5 9H15z"/>',
+  tag:'<path d="M20.6 13.4l-7.2 7.2a2 2 0 01-2.8 0L3 13V3h10l7.6 7.6a2 2 0 010 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/>',
+  vel:'<path d="M4.9 19a9 9 0 1114.2 0"/><path d="M12 13l4-5"/><circle cx="12" cy="13" r="1.3"/>',
+  alerta:'<path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/><path d="M12 9v4M12 17h.01"/>',
+  seta:'<path d="M7 17L17 7M9 7h8v8"/>',
+  check:'<path d="M20 6L9 17l-5-5"/>',
+  relogio:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  mais:'<circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/>',
+  down:'<path d="M12 4v12M6 12l6 6 6-6M4 20h16"/>'
+};
+const ic = (n, s = '') => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" ${s}>${IC[n] || ''}</svg>`;
+
+/* ---------------- Formatação ---------------- */
+const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+const nf = (d) => new Intl.NumberFormat('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d });
+const F = {
+  brl: v => 'R$ ' + nf(0).format(Math.round(v || 0)),
+  brl2: v => 'R$ ' + nf(2).format(v || 0),
+  brlC(v) { const a = Math.abs(v || 0), s = v < 0 ? '- ' : '';
+    if (a >= 1e6) return s + 'R$ ' + nf(a >= 1e8 ? 0 : 1).format(a / 1e6) + ' mi';
+    if (a >= 1e3) return s + 'R$ ' + nf(a >= 1e5 ? 0 : 1).format(a / 1e3) + ' mil';
+    return s + 'R$ ' + nf(0).format(a); },
+  kg(v) { const a = Math.abs(v || 0); return a >= 1000 ? nf(1).format(v / 1000) + ' t' : nf(0).format(v) + ' kg'; },
+  kgN: v => nf(0).format(v || 0) + ' kg',
+  pct: (v, d = 1) => (v === null || !isFinite(v)) ? '—' : nf(d).format(v * 100) + '%',
+  var(v, d = 1) { if (v === null || !isFinite(v)) return '—'; return (v > 0 ? '+' : '') + nf(d).format(v * 100) + '%'; },
+  pp(v) { if (v === null || !isFinite(v)) return '—'; return (v > 0 ? '+' : '') + nf(1).format(v * 100) + ' p.p.'; },
+  int: v => nf(0).format(v || 0),
+  data(s) { if (!s) return '—'; const [y, m, d] = s.split('-'); return `${d}/${m}/${y}`; },
+  esc: s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]))
+};
+const clsVar = v => v === null || !isFinite(v) ? '' : v >= 0 ? 'up' : 'dn';
+const seta = v => v === null || !isFinite(v) ? '' : v >= 0 ? '↑' : '↓';
+
+/* ---------------- Config (por navegador) ---------------- */
+const CFG = {
+  k: 'raffinee_cfg',
+  get() { try { return JSON.parse(localStorage.getItem(this.k) || '{}'); } catch (e) { return {}; } },
+  set(o) { try { localStorage.setItem(this.k, JSON.stringify({ ...this.get(), ...o })); } catch (e) {} },
+  get api() { return this.get().api || ''; },
+  get chave() { return this.get().chave || ''; },
+  get demo() { return !this.api || this.get().demo === true; }
+};
+
+/* ---------------- API (Apps Script) ---------------- */
+const API = {
+  async dados() {
+    const u = `${CFG.api}?action=dados&k=${encodeURIComponent(CFG.chave)}&t=${Date.now()}`;
+    const r = await fetch(u); const j = await r.json();
+    if (!j.ok) throw new Error(j.erro || 'Falha ao ler a base de dados');
+    return j;
+  },
+  async post(action, payload) {
+    if (CFG.demo) return { ok: true, demo: true };
+    const r = await fetch(CFG.api, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ k: CFG.chave, action, payload }) });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.erro || 'Falha ao gravar');
+    return j.resultado;
+  }
+};
+
+/* ---------------- DEMO (dados de exemplo, determinísticos) ---------------- */
+const DEMO = {
+  gerar() {
+    let s = 20260929; const rnd = () => { s |= 0; s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+    const pick = a => a[Math.floor(rnd() * a.length)];
+    const hoje = new Date(); const anoAt = hoje.getFullYear(); const anoAnt = anoAt - 1;
+    const iso = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    const produtos = [
+      ['PG01','Petit Gâteau Cacau Belga','Petit Gâteau',58,1.2,.18,.08],
+      ['PG02','Petit Gâteau Chocolate','Petit Gâteau',49,1.2,.20,.10],
+      ['PG03','Petit Gâteau Doce de Leite','Petit Gâteau',51,1.2,.12,.07],
+      ['PG04','Petit Gâteau Supreme','Petit Gâteau',64,1.2,.34,.22],
+      ['PG05','Petit Gâteau Chocolate e Coco','Petit Gâteau',53,1.2,.06,-.02],
+      ['BR01','Brownie','Brownies',46,1.5,.14,.10],
+      ['BR02','Brownie Bites','Brownies',52,1.0,.42,.36],
+      ['TO01','Torta de Chocolate','Tortas',41,2.2,.04,-.03],
+      ['TO02','Torta Duo Chocolate','Tortas',45,2.2,.10,.03],
+      ['PU01','Pudim de Leite Condensado','Sobremesas',36,1.8,-.06,-.10],
+      ['PM01','Pão de Mel','Confeitaria',57,0.8,-.12,-.08],
+      ['AL01','Alfajor','Confeitaria',60,0.8,.30,.27]
+    ]; // cod, nome, cat, R$/kg ano anterior, kg/caixa, cresc R$, cresc kg
+    const vendedores = [['V01','Ana Paula',1.22],['V02','Carlos Silva',1.06],['V03','Mariana Costa',.99],['V04','Ricardo Alves',.83],['V05','Fernanda Lima',.78]];
+    const canais = ['Food Service','Cafeterias','Hotelaria','Varejo'];
+    const nomes = ['Café Aroma','Bistrô Lumière','Padaria Bella Massa','Hotel Porto Real','Empório Serrano','Restaurante Villa Nova','Cafeteria Grão Nobre','Buffet Celebrare','Mercado Sabor & Cia','Hotel Ilha Bela','Doceria Flor de Açúcar','Restaurante Mar Aberto','Café da Praça','Bistrô Oliva','Supermercado Bom Preço','Hotel Serra Azul','Padaria Trigo de Ouro','Restaurante Casa Mineira','Cafeteria Expresso Sul','Empório Gourmet Vix','Pousada Recanto','Restaurante Don Carlo','Café Colonial Pomerano','Buffet Estrela','Hotel Costa Dourada','Mercearia Central','Churrascaria Gaúcha','Café Bom Dia','Restaurante Sabor do Mar','Bistrô Petit Paris','Padaria Pão Nosso','Hotel Business Center','Empório das Montanhas','Restaurante Nonna Rosa','Cafeteria Moinho','Supermercado Econômico','Restaurante Tempero Caseiro','Hotel Vitória Palace','Doceria Encanto','Restaurante Oriental Sakura','Café Vila Rica','Rede Fit Food','Padaria Aurora','Buffet Requinte','Hotel Enseada','Restaurante Brasa Viva','Cafeteria Cappuccino','Empório Italiano','Restaurante Maré Alta','Café Jardim','Hotel Pedra Azul','Bistrô Alecrim','Mercado Frutos da Terra','Restaurante Bella Vista','Padaria Bom Grão','Café Cultura','Hotel Atlântico','Restaurante Fogo de Chão Vix','Cafeteria Cacau','Rede Sabor Express','Buffet Encontro','Restaurante Panela de Barro','Hotel Mirante','Doceria Sweet Home'];
+    const cidades = [['Vitória','ES'],['Vila Velha','ES'],['Serra','ES'],['Cariacica','ES'],['Guarapari','ES'],['Linhares','ES'],['Rio de Janeiro','RJ'],['Belo Horizonte','MG']];
+    const saz = [.82,.86,.95,.97,1.02,1.04,1.08,1.0,1.0,1.05,1.12,1.35];
+    const clientes = [], vendas = [];
+    nomes.forEach((n, i) => {
+      const v = vendedores[i % 5]; const c = pick(cidades);
+      const porte = rnd() < .15 ? 3.2 : rnd() < .45 ? 1.6 : .7;
+      const freq = pick([7, 7, 10, 14, 14, 15, 21, 21, 30, 30, 45]);
+      const mix = produtos.filter(() => rnd() < .5); if (mix.length < 3) mix.push(produtos[0], produtos[5], produtos[1]);
+      let inicio = new Date(anoAnt, 0, 1 + Math.floor(rnd() * 20)), fim = hoje;
+      const perfil = rnd();
+      if (i >= 56) inicio = new Date(anoAt, Math.floor(rnd() * 6), 1 + Math.floor(rnd() * 25));          // clientes novos
+      else if (perfil < .07) fim = new Date(anoAt, Math.floor(rnd() * 4), 10);                          // inativos
+      else if (perfil < .13) fim = new Date(hoje.getTime() - (freq * 2.2 + 10) * 864e5);                 // em risco
+      else if (perfil < .30) fim = new Date(hoje.getTime() - Math.floor(freq * .6 + 12) * 864e5);        // ainda não compraram no mês
+      clientes.push([`C${String(i + 1).padStart(3, '0')}`, n, v[1], canais[i % 7 === 0 ? 3 : i % 3], c[0], c[1], 'ATIVO']);
+      let d = new Date(inicio), ped = 1000 * (i + 1);
+      while (d <= fim) {
+        const cur = d.getFullYear() === anoAt;
+        const ritmoV = cur ? v[2] : 1;
+        const itens = mix.filter(() => rnd() < .62); if (!itens.length) itens.push(mix[0]);
+        ped++;
+        itens.forEach(p => {
+          const kgBase = porte * (freq / 7) * (6 + rnd() * 14) * saz[d.getMonth()] * ritmoV * (cur ? 1 + p[6] : 1);
+          const cx = Math.max(1, Math.round(kgBase / p[4]));
+          const kg = +(cx * p[4]).toFixed(2);
+          const precoKg = p[3] * (cur ? (1 + p[5]) / (1 + p[6]) : 1) * (0.96 + rnd() * .08);
+          vendas.push([iso(d), 'PD' + ped, clientes[i][0], n, v[1], p[0], p[1], clientes[i][3], cx, kg, +(kg * precoKg).toFixed(2)]);
+        });
+        d = new Date(d.getTime() + Math.max(3, freq * (0.75 + rnd() * .5)) * 864e5);
+      }
+    });
+    // Metas: base ano anterior × fator
+    const sum = {}; vendas.forEach(r => { const y = +r[0].slice(0, 4), m = +r[0].slice(5, 7); if (y !== anoAnt) return;
+      [['EMPRESA','EMPRESA'],['VENDEDOR',r[4]],['PRODUTO',r[6]],['CLIENTE',r[3]]].forEach(([t, k]) => { const kk = t + '|' + k + '|' + m; (sum[kk] ||= [0, 0]); sum[kk][0] += r[10]; sum[kk][1] += r[9]; }); });
+    const metas = []; const fat = { EMPRESA: 1.16, VENDEDOR: 1.16, PRODUTO: 1.15, CLIENTE: 1.12 };
+    Object.entries(sum).forEach(([kk, [val, kg]]) => { const [t, k, m] = kk.split('|'); metas.push([anoAt, +m, t, k, Math.round(val * fat[t] / 100) * 100, Math.round(kg * 1.08)]); });
+    // Clientes novos do ano ganham meta pela média mensal que já praticam
+    return {
+      vendas: { cols: ['DATA','PEDIDO','COD_CLIENTE','CLIENTE','VENDEDOR','COD_PRODUTO','PRODUTO','CANAL','QTD','KG','VALOR'], rows: vendas },
+      clientes: { cols: ['COD_CLIENTE','CLIENTE','VENDEDOR','CANAL','CIDADE','UF','STATUS'], rows: clientes },
+      produtos: { cols: ['COD_PRODUTO','PRODUTO','CATEGORIA','LINHA','PESO_KG','STATUS'], rows: produtos.map(p => [p[0], p[1], p[2], 'Congelados', p[4], 'ATIVO']) },
+      vendedores: { cols: ['COD_VENDEDOR','VENDEDOR','STATUS'], rows: vendedores.map(v => [v[0], v[1], 'ATIVO']) },
+      metas: { cols: ['ANO','MES','TIPO','CHAVE','META_VALOR','META_KG'], rows: metas },
+      arquivos: { cols: ['ID','TIPO','NOME','PERIODO','DATA_GERACAO','LINK_DRIVE','OBS'], rows: [
+        ['ARQ-01','Relatório mensal','Resultado comercial — Agosto', `Ago/${anoAt}`, `${anoAt}-09-03`, '', 'Exemplo'],
+        ['ARQ-02','Apresentação comercial','Reunião de resultados 2º trimestre', `T2/${anoAt}`, `${anoAt}-07-08`, '', 'Exemplo'],
+        ['ARQ-03','Planejamento','Plano comercial e metas ' + anoAt, String(anoAt), `${anoAt}-01-12`, '', 'Exemplo'],
+        ['ARQ-04','Tabela de preços','Tabela de preços Food Service', String(anoAt), `${anoAt}-03-01`, '', 'Exemplo']
+      ] }
+    };
+  }
+};
+
+/* ---------------- DB (dados normalizados em memória) ---------------- */
+const DB = {
+  vendas: [], clientes: [], produtos: [], vendedores: [], metas: [], arquivos: [], atualizadoEm: null, fonte: '',
+  num(v) { if (typeof v === 'number') return v; if (v === null || v === undefined || v === '') return 0; let s = String(v).replace(/R\$|\s/g, ''); if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.'); const n = parseFloat(s); return isNaN(n) ? 0 : n; },
+  obj(t) { return (t?.rows || []).map(r => Object.fromEntries(t.cols.map((c, i) => [c, r[i]]))); },
+  carregar(d) {
+    this.vendas = (d.vendas?.rows || []).map(r => {
+      const x = Object.fromEntries(d.vendas.cols.map((c, i) => [c, r[i]]));
+      const dt = String(x.DATA).slice(0, 10);
+      return { d: dt, y: +dt.slice(0, 4), m: +dt.slice(5, 7), ped: String(x.PEDIDO || ''), cc: String(x.COD_CLIENTE || x.CLIENTE), cli: String(x.CLIENTE || ''), vend: String(x.VENDEDOR || ''), cp: String(x.COD_PRODUTO || x.PRODUTO), prod: String(x.PRODUTO || ''), canal: String(x.CANAL || ''), qtd: this.num(x.QTD), kg: this.num(x.KG), val: this.num(x.VALOR) };
+    }).filter(v => v.y > 2000);
+    this.clientes = this.obj(d.clientes);
+    this.produtos = this.obj(d.produtos);
+    this.vendedores = this.obj(d.vendedores);
+    this.metas = this.obj(d.metas).map(m => ({ ano: +m.ANO, mes: +m.MES, tipo: String(m.TIPO).toUpperCase(), chave: String(m.CHAVE), val: this.num(m.META_VALOR), kg: this.num(m.META_KG) }));
+    this.arquivos = this.obj(d.arquivos);
+    // Cadastro de clientes derivado das vendas quando a aba CLIENTES estiver vazia/incompleta
+    const cad = new Map(this.clientes.map(c => [String(c.COD_CLIENTE), c]));
+    this.vendas.forEach(v => { if (!cad.has(v.cc)) cad.set(v.cc, { COD_CLIENTE: v.cc, CLIENTE: v.cli, VENDEDOR: v.vend, CANAL: v.canal, STATUS: 'ATIVO' }); });
+    this.clientes = [...cad.values()];
+    this.indices();
+  },
+  indices() {
+    const u = (arr) => [...new Set(arr.filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    this.listaVend = u([...this.vendas.map(v => v.vend), ...this.vendedores.map(v => v.VENDEDOR)]);
+    this.listaCli = u(this.clientes.map(c => c.CLIENTE));
+    this.listaProd = u([...this.vendas.map(v => v.prod), ...this.produtos.map(p => p.PRODUTO)]);
+    this.listaCanal = u(this.vendas.map(v => v.canal));
+    this.anos = u(this.vendas.map(v => String(v.y))).map(Number).sort((a, b) => b - a);
+    this.maxData = this.vendas.reduce((a, v) => v.d > a ? v.d : a, '');
+  }
+};
+
+/* ---------------- ENG (motor de indicadores) ---------------- */
+const ENG = {
+  f: { ano: 0, mFim: 0, vend: '', cli: '', prod: '', canal: '' },
+  diasMes: (y, m) => new Date(y, m, 0).getDate(),
+  hojeISO() { const h = new Date(); return h.getFullYear() + '-' + String(h.getMonth() + 1).padStart(2, '0') + '-' + String(h.getDate()).padStart(2, '0'); },
+  /** Data de referência: hoje (se o período inclui o mês corrente) ou o último dia do mês final */
+  ref() {
+    const { ano, mFim } = this.f; const hoje = this.hojeISO();
+    const fimMes = `${ano}-${String(mFim).padStart(2, '0')}-${String(this.diasMes(ano, mFim)).padStart(2, '0')}`;
+    return fimMes > hoje ? hoje : fimMes;
+  },
+  /** Fração do mês final já decorrida (para meta proporcional e YoY justo) */
+  fracMes() { const r = this.ref(); const { ano, mFim } = this.f; if (+r.slice(0, 4) !== ano || +r.slice(5, 7) !== mFim) return 1; return +r.slice(8, 10) / this.diasMes(ano, mFim); },
+  diaCorte() { return this.fracMes() < 1 ? +this.ref().slice(8, 10) : 31; },
+  passa(v, ign = {}) { const f = this.f;
+    return (!f.vend || ign.vend || v.vend === f.vend) && (!f.cli || ign.cli || v.cli === f.cli) && (!f.prod || ign.prod || v.prod === f.prod) && (!f.canal || ign.canal || v.canal === f.canal); },
+  /** Vendas do ano/meses com filtros; cortaDia aplica o mesmo dia do mês final (comparação justa) */
+  periodo(ano, mIni, mFim, ign = {}, cortaDia = true) {
+    const dc = cortaDia ? this.diaCorte() : 31;
+    return DB.vendas.filter(v => v.y === ano && v.m >= mIni && v.m <= mFim && (v.m < mFim || +v.d.slice(8, 10) <= dc) && this.passa(v, ign));
+  },
+  soma(arr) { let val = 0, kg = 0; for (const v of arr) { val += v.val; kg += v.kg; } return { val, kg }; },
+  /** Nível de meta conforme filtros ativos */
+  nivelMeta(over) { const f = { ...this.f, ...over };
+    if (f.cli) return ['CLIENTE', f.cli]; if (f.prod) return ['PRODUTO', f.prod]; if (f.vend) return ['VENDEDOR', f.vend]; if (f.canal) return null; return ['EMPRESA', 'EMPRESA']; },
+  metaMes(tipo, chave, ano, mes) {
+    let arr = DB.metas.filter(m => m.ano === ano && m.mes === mes && m.tipo === tipo && m.chave === chave);
+    if (!arr.length && tipo === 'EMPRESA') arr = DB.metas.filter(m => m.ano === ano && m.mes === mes && m.tipo === 'VENDEDOR');
+    if (!arr.length) return null;
+    return arr.reduce((a, m) => ({ val: a.val + m.val, kg: a.kg + m.kg }), { val: 0, kg: 0 });
+  },
+  metasSerie(over) { const n = this.nivelMeta(over); if (!n) return null; const out = [];
+    let tem = false; for (let m = 1; m <= 12; m++) { const x = this.metaMes(n[0], n[1], this.f.ano, m); if (x) tem = true; out.push(x || { val: 0, kg: 0 }); }
+    return tem ? out : null; },
+  metaAcum(serie) { if (!serie) return null; const fr = this.fracMes(); let v = 0, k = 0;
+    for (let m = 1; m <= this.f.mFim; m++) { const p = m === this.f.mFim ? fr : 1; v += serie[m - 1].val * p; k += serie[m - 1].kg * p; } return { val: v, kg: k }; },
+
+  mensal(ano, ign = {}) { const out = Array.from({ length: 12 }, () => ({ val: 0, kg: 0 }));
+    for (const v of DB.vendas) if (v.y === ano && this.passa(v, ign)) { out[v.m - 1].val += v.val; out[v.m - 1].kg += v.kg; } return out; },
+
+  /** Situação da carteira na data de referência */
+  carteira(over = {}) {
+    const f = { ...this.f, ...over }; const ref = this.ref(); const refT = new Date(ref + 'T12:00:00').getTime();
+    const ini = `${f.ano}-${String(f.mFim).padStart(2, '0')}-01`;
+    const inat = 120, fator = 1.5;
+    const cad = DB.clientes.filter(c => String(c.STATUS || 'ATIVO').toUpperCase() !== 'INATIVO_CADASTRO' && (!f.vend || c.VENDEDOR === f.vend) && (!f.canal || c.CANAL === f.canal) && (!f.cli || c.CLIENTE === f.cli));
+    const porCli = new Map();
+    for (const v of DB.vendas) { if (v.d > ref) continue; if (f.prod && v.prod !== f.prod) continue;
+      let o = porCli.get(v.cc); if (!o) porCli.set(v.cc, o = { datas: new Set(), val12: 0, ultima: '' }); o.datas.add(v.d); if (v.d > o.ultima) o.ultima = v.d;
+      if (refT - new Date(v.d + 'T12:00:00').getTime() <= 365 * 864e5) o.val12 += v.val; }
+    const lista = cad.map(c => {
+      const o = porCli.get(String(c.COD_CLIENTE)) || { datas: new Set(), val12: 0, ultima: '' };
+      const ds = [...o.datas].sort().filter(d => refT - new Date(d + 'T12:00:00').getTime() <= 365 * 864e5);
+      let freq = null; if (ds.length >= 3) { let t = 0; for (let i = 1; i < ds.length; i++) t += (new Date(ds[i]) - new Date(ds[i - 1])) / 864e5; freq = t / (ds.length - 1); }
+      const dias = o.ultima ? Math.round((refT - new Date(o.ultima + 'T12:00:00').getTime()) / 864e5) : null;
+      let st;
+      if (o.ultima && o.ultima >= ini) st = 'comprou';
+      else if (!o.ultima || dias > inat) st = 'inativo';
+      else if ((freq && dias > Math.max(freq * fator, freq + 7)) || (!freq && dias > 45)) st = 'risco';
+      else st = 'aguardando';
+      const meses = Math.min(12, Math.max(1, ds.length ? (refT - new Date(ds[0] + 'T12:00:00').getTime()) / (30.4 * 864e5) : 1));
+      return { cod: String(c.COD_CLIENTE), cli: c.CLIENTE, vend: c.VENDEDOR, canal: c.CANAL, cidade: c.CIDADE || '', st, ultima: o.ultima, dias, freq, media: o.val12 / meses, atraso: freq && dias !== null ? dias - freq : null };
+    });
+    const cont = { comprou: 0, aguardando: 0, risco: 0, inativo: 0 }; lista.forEach(c => cont[c.st]++);
+    const base = lista.length - cont.inativo;
+    return { lista, cont, total: lista.length, cobertura: base ? cont.comprou / base : null };
+  },
+  ativos90(refISO) { const refT = new Date(refISO + 'T12:00:00').getTime(); const s = new Set();
+    for (const v of DB.vendas) { const t = new Date(v.d + 'T12:00:00').getTime(); if (t <= refT && refT - t <= 90 * 864e5 && this.passa(v)) s.add(v.cc); } return s.size; },
+
+  agrupa(arr, key) { const m = new Map(); for (const v of arr) { const k = v[key]; let o = m.get(k); if (!o) m.set(k, o = { k, val: 0, kg: 0, peds: new Set(), clis: new Set(), vends: new Set() }); o.val += v.val; o.kg += v.kg; o.peds.add(v.ped); o.clis.add(v.cc); o.vends.add(v.vend); } return m; },
+
+  classifica(gR, gK, novo) {
+    if (novo) return ['Novo', 'p-vin'];
+    if (gR > 0 && gK > gR + .05) return ['Crescimento de volume', 'p-ok'];
+    if (gR > 0 && gK > .01) return ['Crescimento saudável', 'p-ok'];
+    if (gR > 0) return ['Puxado por valor', 'p-warn'];
+    if (gK > 0) return ['Volume sem preço', 'p-warn'];
+    return ['Queda', 'p-bad'];
+  },
+
+  /** Pacote principal de indicadores */
+  calc() {
+    const f = this.f, ano = f.ano, ant = ano - 1;
+    const cur = this.periodo(ano, 1, f.mFim), prev = this.periodo(ant, 1, f.mFim);
+    const c = this.soma(cur), p = this.soma(prev);
+    const mensal = this.mensal(ano), mensalAnt = this.mensal(ant);
+    const serieMeta = this.metasSerie(); const metaAc = this.metaAcum(serieMeta);
+    const metaAno = serieMeta ? serieMeta.reduce((a, x) => a + x.val, 0) : null;
+    const fr = this.fracMes();
+    const restantes = 12 - f.mFim + (1 - fr);
+    const falta = metaAno !== null ? Math.max(0, metaAno - c.val) : null;
+    const ritmo = metaAno !== null && restantes > 0 ? falta / restantes : null;
+    // média dos 3 últimos meses completos
+    const ultM = fr < 1 ? f.mFim - 1 : f.mFim; const ms = []; for (let m = ultM; m > ultM - 3; m--) { if (m >= 1) ms.push(mensal[m - 1].val); else ms.push(mensalAnt[m + 11].val); }
+    const media3 = ms.reduce((a, b) => a + b, 0) / ms.length;
+    const cart = this.carteira();
+    const ref = this.ref(); const refAnt = (+ref.slice(0, 4) - 1) + ref.slice(4);
+    const at = this.ativos90(ref), atAnt = this.ativos90(refAnt);
+    const cartAnt = (() => { const sv = { ...this.f }; this.f.ano = ant; const r = this.carteira(); this.f = sv; return r; })();
+    // produtos
+    const gp = this.agrupa(cur, 'prod'), gpA = this.agrupa(prev, 'prod');
+    const delta = c.val - p.val;
+    const prods = [...gp.values()].map(x => { const a = gpA.get(x.k) || { val: 0, kg: 0 }; const gR = a.val ? x.val / a.val - 1 : null, gK = a.kg ? x.kg / a.kg - 1 : null;
+      return { k: x.k, val: x.val, kg: x.kg, valA: a.val, kgA: a.kg, gR, gK, rkg: x.kg ? x.val / x.kg : 0, clis: x.clis.size, vends: x.vends.size, shV: c.val ? x.val / c.val : 0, shK: c.kg ? x.kg / c.kg : 0, contrib: delta ? (x.val - a.val) / delta : null, cls: this.classifica(gR ?? 0, gK ?? 0, !a.val) }; })
+      .sort((a, b) => b.val - a.val);
+    // vendedores
+    const gv = this.agrupa(this.periodo(ano, 1, f.mFim, { vend: true }), 'vend'), gvA = this.agrupa(this.periodo(ant, 1, f.mFim, { vend: true }), 'vend');
+    const vends = DB.listaVend.map(k => { const x = gv.get(k) || { val: 0, kg: 0, peds: new Set(), clis: new Set() }; const a = gvA.get(k) || { val: 0, kg: 0 };
+      const ms = this.metaAcum(this.metasSerie({ vend: k, cli: '', prod: '', canal: '' }));
+      return { k, val: x.val, kg: x.kg, meta: ms?.val ?? null, ating: ms?.val ? x.val / ms.val : null, gap: ms?.val ? x.val - ms.val : null, gR: a.val ? x.val / a.val - 1 : null, gK: a.kg ? x.kg / a.kg - 1 : null, ticket: x.peds.size ? x.val / x.peds.size : 0, peds: x.peds.size, clis: x.clis.size, rkg: x.kg ? x.val / x.kg : 0 }; })
+      .filter(v => v.val || v.meta).sort((a, b) => (b.ating ?? -1) - (a.ating ?? -1));
+    // clientes (concentração)
+    const gc = [...this.agrupa(cur, 'cli').values()].sort((a, b) => b.val - a.val);
+    const top5 = gc.slice(0, 5).reduce((a, x) => a + x.val, 0), top10 = gc.slice(0, 10).reduce((a, x) => a + x.val, 0);
+    const top3p = prods.slice(0, 3).reduce((a, x) => a + x.val, 0);
+    return { c, p, gR: p.val ? c.val / p.val - 1 : null, gK: p.kg ? c.kg / p.kg - 1 : null, rkg: c.kg ? c.val / c.kg : 0, rkgA: p.kg ? p.val / p.kg : 0,
+      mensal, mensalAnt, serieMeta, metaAc, metaAno, ating: metaAc?.val ? c.val / metaAc.val : null, gap: metaAc ? c.val - metaAc.val : null,
+      falta, restantes, ritmo, media3, acel: ritmo !== null && media3 ? ritmo / media3 - 1 : null, fr,
+      cart, cartAnt, at, atAnt, prods, vends, conc5: c.val ? top5 / c.val : 0, conc10: c.val ? top10 / c.val : 0, conc3p: c.val ? top3p / c.val : 0, nCli: gc.length };
+  },
+
+  /** Pontos de atenção — regras matemáticas */
+  atencao(k) {
+    const out = [];
+    const nao = k.cart.cont.aguardando + k.cart.cont.risco;
+    if (nao) out.push({ sev: 'bad', ic: 'clientes', h: `<b>${nao} clientes</b> da carteira ainda não compraram no mês.`, go: 'cobertura' });
+    if (k.cart.cont.risco) out.push({ sev: 'bad', ic: 'relogio', h: `<b>${k.cart.cont.risco} clientes</b> estão acima do período normal de recompra.`, go: 'cobertura' });
+    const pior = k.vends.filter(v => v.ating !== null && v.ating < .9).sort((a, b) => a.ating - b.ating)[0];
+    if (pior) out.push({ sev: 'bad', ic: 'vend', h: `Vendedor ${F.esc(pior.k)} está <b>${F.pct(1 - pior.ating, 0)} abaixo</b> da meta acumulada.`, go: 'vendedores' });
+    const valor = k.prods.filter(p => p.gR !== null && p.gK !== null && p.gR > .1 && p.gR - p.gK > .1 && p.val > k.c.val * .03).sort((a, b) => (b.gR - b.gK) - (a.gR - a.gK))[0];
+    if (valor) out.push({ sev: 'warn', ic: 'cresc', h: `${F.esc(valor.k)} cresceu <b>${F.var(valor.gR, 0)} em R$</b> e ${F.var(valor.gK, 0)} em kg.`, go: 'produtos' });
+    const top = k.prods.filter(p => p.contrib !== null && p.contrib > 0).sort((a, b) => b.contrib - a.contrib).slice(0, 4);
+    if (top.length >= 3 && k.c.val > k.p.val) { const s = top.reduce((a, x) => a + x.contrib, 0); out.push({ sev: 'warn', ic: 'prod', h: `<b>${top.length} produtos</b> respondem por ${F.pct(s, 0)} do crescimento.`, go: 'produtos' }); }
+    if (k.acel !== null && k.acel > .03) out.push({ sev: 'bad', ic: 'vel', h: `Ritmo necessário está <b>${F.pct(k.acel, 0)} acima</b> da média dos últimos 3 meses.`, go: 'objetivo' });
+    if (k.conc5 > .4) out.push({ sev: 'warn', ic: 'pizza', h: `Top 5 clientes concentram <b>${F.pct(k.conc5, 0)}</b> do faturamento.`, go: 'clientes' });
+    const queda = k.prods.filter(p => p.gR !== null && p.gR < -.05 && p.valA > k.p.val * .02).sort((a, b) => a.gR - b.gR)[0];
+    if (queda) out.push({ sev: 'bad', ic: 'prod', h: `${F.esc(queda.k)} caiu <b>${F.var(queda.gR, 0)}</b> em R$ contra o ano anterior.`, go: 'produtos' });
+    const campeao = k.vends.filter(v => v.ating !== null && v.ating >= 1.1).sort((a, b) => b.ating - a.ating)[0];
+    if (campeao) out.push({ sev: 'ok', ic: 'check', h: `${F.esc(campeao.k)} está com <b>${F.pct(campeao.ating, 0)}</b> da meta acumulada.`, go: 'vendedores' });
+    return out;
+  }
+};
+
+/* ---------------- Gráficos ---------------- */
+const CH = {
+  inst: [],
+  css: n => getComputedStyle(document.documentElement).getPropertyValue(n).trim(),
+  limpa() { this.inst.forEach(c => c.destroy()); this.inst = []; },
+  novo(el, cfg) { if (!el || !window.Chart) return null; const c = new Chart(el, cfg); this.inst.push(c); return c; },
+  base() { if (!window.Chart) return; Chart.defaults.font.family = "Manrope, system-ui, sans-serif"; Chart.defaults.color = this.css('--txt-2'); Chart.defaults.borderColor = this.css('--linha'); Chart.defaults.plugins.legend.display = false; Chart.defaults.maintainAspectRatio = false;
+    Chart.defaults.plugins.tooltip.backgroundColor = '#2C1214'; Chart.defaults.plugins.tooltip.padding = 10; Chart.defaults.plugins.tooltip.cornerRadius = 8; },
+  spark(el, dados, cor) { return this.novo(el, { type: 'line', data: { labels: dados.map((_, i) => i), datasets: [{ data: dados, borderColor: cor || this.css('--vinho'), borderWidth: 1.8, pointRadius: 0, tension: .35, fill: true, backgroundColor: 'transparent' }] },
+    options: { plugins: { tooltip: { enabled: false } }, scales: { x: { display: false }, y: { display: false } }, animation: false, events: [] } }); },
+  /** Etiqueta no último ponto de cada série */
+  pinFinal: { id: 'pinFinal', afterDatasetsDraw(ch, a, o) { if (!o || !o.on) return; const ctx = ch.ctx; ch.data.datasets.forEach((ds, i) => { const meta = ch.getDatasetMeta(i); if (meta.hidden || !ds.pin) return;
+    let j = ds.data.length - 1; while (j >= 0 && (ds.data[j] === null || ds.data[j] === undefined)) j--; if (j < 0) return; const pt = meta.data[j]; const txt = ds.pin(ds.data[j]);
+    ctx.save(); ctx.font = '700 11px Manrope, sans-serif'; const w = ctx.measureText(txt).width + 14, h = 20, x = Math.min(pt.x - w / 2, ch.chartArea.right - w + 6), y = ds.pinDown ? pt.y + 10 : pt.y - h - 8;
+    ctx.fillStyle = ds.pinBg; ctx.beginPath(); ctx.roundRect(x, y, w, h, 5); ctx.fill(); ctx.fillStyle = '#fff'; ctx.textBaseline = 'middle'; ctx.fillText(txt, x + 7, y + h / 2); ctx.restore(); }); } },
+  acumulado(el, k, altura) {
+    const fm = ENG.f.mFim; const lbl = MESES.slice(0, fm);
+    let a = 0; const real = k.mensal.slice(0, fm).map(x => (a += x.val));
+    let b = 0; const meta = k.serieMeta ? k.serieMeta.slice(0, fm).map(x => (b += x.val)) : null;
+    let c = 0; const ant = k.mensalAnt.slice(0, fm).map(x => (c += x.val));
+    const vin = this.css('--vinho'), ch = this.css('--champ');
+    const ds = [{ label: 'Realizado acumulado', data: real, borderColor: vin, backgroundColor: ctx => { const g = ctx.chart.ctx.createLinearGradient(0, 0, 0, altura || 240); g.addColorStop(0, 'rgba(122,46,54,.22)'); g.addColorStop(1, 'rgba(122,46,54,0)'); return g; }, fill: true, borderWidth: 2.6, pointRadius: 3.5, pointBackgroundColor: vin, tension: .25, pin: v => F.brlC(v), pinBg: vin }];
+    if (meta) ds.push({ label: 'Meta acumulada', data: meta, borderColor: ch, borderDash: [6, 5], borderWidth: 2, pointRadius: 3, pointBackgroundColor: ch, tension: .25, fill: false, pin: v => F.brlC(v), pinBg: ch, pinDown: meta[meta.length - 1] <= real[real.length - 1] });
+    else ds.push({ label: `${ENG.f.ano - 1} acumulado`, data: ant, borderColor: ch, borderDash: [6, 5], borderWidth: 2, pointRadius: 2, tension: .25, fill: false, pin: v => F.brlC(v), pinBg: ch });
+    return this.novo(el, { type: 'line', data: { labels: lbl, datasets: ds }, plugins: [this.pinFinal],
+      options: { layout: { padding: { top: 28, right: 12 } }, interaction: { mode: 'index', intersect: false }, plugins: { pinFinal: { on: true }, tooltip: { callbacks: { label: t => ` ${t.dataset.label}: ${F.brlC(t.raw)}` } } },
+        scales: { y: { beginAtZero: true, ticks: { callback: v => F.brlC(v), maxTicksLimit: 5 }, grid: { color: this.css('--linha') } }, x: { grid: { display: false } } } } });
+  }
+};
+
+/* ---------------- Gauge (velocímetro) ---------------- */
+function gauge(p, rot, tam) {
+  const v = p === null || !isFinite(p) ? 0 : Math.max(0, Math.min(1.2, p)); const ang = Math.PI * (1 - v / 1.2);
+  const cx = 120, cy = 118, r = 96; const pt = a => [cx + r * Math.cos(a), cy - r * Math.sin(a)];
+  const arco = (a0, a1, cor, w) => { const [x0, y0] = pt(a0), [x1, y1] = pt(a1); return `<path d="M${x0} ${y0} A${r} ${r} 0 0 1 ${x1} ${y1}" stroke="${cor}" stroke-width="${w}" fill="none" stroke-linecap="butt"/>`; };
+  const cor = p === null ? 'var(--txt-3)' : p >= 1 ? 'var(--ok)' : p >= .9 ? 'var(--warn)' : 'var(--bad)';
+  const [nx, ny] = [cx + (r - 22) * Math.cos(ang), cy - (r - 22) * Math.sin(ang)];
+  const marca = a => { const [x0, y0] = [cx + (r + 8) * Math.cos(a), cy - (r + 8) * Math.sin(a)], [x1, y1] = [cx + (r - 20) * Math.cos(a), cy - (r - 20) * Math.sin(a)]; return `<line x1="${x0}" y1="${y0}" x2="${x1}" y2="${y1}" stroke="var(--txt)" stroke-width="2"/>`; };
+  return `<div class="gauge"><svg viewBox="0 0 240 132" role="img" aria-label="${F.pct(p)} ${rot || ''}">
+    ${arco(Math.PI, Math.PI * (1 - .9 / 1.2), 'var(--bad-bg)', 18)}${arco(Math.PI * (1 - .9 / 1.2), Math.PI * (1 - 1 / 1.2), 'var(--warn-bg)', 18)}${arco(Math.PI * (1 - 1 / 1.2), 0.0001, 'var(--ok-bg)', 18)}
+    ${v > 0 ? arco(Math.PI, Math.max(ang, 0.0001), cor, 18) : ''}${marca(Math.PI * (1 - 1 / 1.2))}
+    <line x1="${cx}" y1="${cy}" x2="${nx}" y2="${ny}" stroke="var(--txt)" stroke-width="3" stroke-linecap="round"/><circle cx="${cx}" cy="${cy}" r="6" fill="var(--txt)"/>
+    <text x="${pt(Math.PI * (1 - 1 / 1.2))[0] + 6}" y="${pt(Math.PI * (1 - 1 / 1.2))[1] - 12}" font-size="10" fill="var(--txt-2)" font-family="Manrope">100%</text></svg>
+    <div class="gv" style="color:${cor}">${F.pct(p)}</div><div class="gl">${rot || ''}</div></div>`;
+}
+
+/* ---------------- UI ---------------- */
+const NAV = [
+  ['visao','Visão Executiva','visao'],['objetivo','Objetivo x Realizado','alvo'],['clientes','Clientes','clientes'],['vendedores','Vendedores','vend'],['produtos','Produtos','prod'],['cobertura','Cobertura de Clientes','pin'],['metas','Planejamento / Metas','meta'],
+  ['sep'],['apresentacoes','Apresentações','apres'],['arquivos','Central de Arquivos','arq'],['lancamentos','Lançamentos / Importações','up'],['config','Configurações','cfg']
+];
+const MNAV = [['visao','Início','visao'],['clientes','Clientes','clientes'],['produtos','Produtos','prod'],['vendedores','Vendedores','vend'],['mais','Mais','mais']];
+
+const UI = {
+  view: 'visao',
+  init() {
+    document.getElementById('nav').innerHTML = NAV.map(n => n[0] === 'sep' ? '<div class="sep"></div>' : `<a href="#${n[0]}" data-v="${n[0]}">${ic(n[2])}<span>${n[1]}</span></a>`).join('');
+    document.getElementById('mnav').innerHTML = MNAV.map(n => `<a href="#${n[0] === 'mais' ? '' : n[0]}" data-v="${n[0]}" ${n[0] === 'mais' ? 'onclick="event.preventDefault();UI.menu(true)"' : ''}>${ic(n[2])}<span>${n[1]}</span></a>`).join('');
+    document.getElementById('side').addEventListener('click', e => { if (e.target.closest('a')) UI.menu(false); });
+    window.addEventListener('hashchange', () => this.rota());
+    ['vend','cli','prod','canal'].forEach(k => document.getElementById('f-' + k).addEventListener('change', e => { ENG.f[k] = e.target.value; this.salvarFiltros(); this.render(); }));
+    document.getElementById('f-per').addEventListener('change', e => { const [a, m] = e.target.value.split('-').map(Number); ENG.f.ano = a; ENG.f.mFim = m; this.salvarFiltros(); this.render(); });
+    let rs; window.addEventListener('resize', () => { clearTimeout(rs); rs = setTimeout(() => CH.inst.forEach(c => c.resize()), 150); });
+  },
+  menu(on) { document.getElementById('side').classList.toggle('open', on); document.getElementById('overlay').innerHTML = on ? '<div class="scrim" style="z-index:45" onclick="UI.menu(false)"></div>' : ''; },
+  go(v) { location.hash = v; },
+  rota() { UI.fecha(); DECK.ch && DECK.fechar(); UI.menu(false); const v = (location.hash || '#visao').slice(1) || 'visao'; this.view = VIEWS[v] ? v : 'visao'; this.render(); window.scrollTo(0, 0); },
+  filtros() {
+    const opt = (arr, sel, todos = 'Todos') => `<option value="">${todos}</option>` + arr.map(x => `<option ${x === sel ? 'selected' : ''}>${F.esc(x)}</option>`).join('');
+    document.getElementById('f-vend').innerHTML = opt(DB.listaVend, ENG.f.vend);
+    document.getElementById('f-cli').innerHTML = opt(DB.listaCli, ENG.f.cli);
+    document.getElementById('f-prod').innerHTML = opt(DB.listaProd, ENG.f.prod);
+    document.getElementById('f-canal').innerHTML = opt(DB.listaCanal, ENG.f.canal);
+    const per = []; DB.anos.forEach(a => { const ult = a === new Date().getFullYear() ? new Date().getMonth() + 1 : 12; for (let m = ult; m >= 1; m--) per.push([`${a}-${m}`, `Jan a ${MESES[m - 1]} / ${a}`]); });
+    document.getElementById('f-per').innerHTML = per.map(p => `<option value="${p[0]}" ${p[0] === ENG.f.ano + '-' + ENG.f.mFim ? 'selected' : ''}>${p[1]}</option>`).join('');
+  },
+  salvarFiltros() { CFG.set({ filtros: ENG.f }); },
+  render() {
+    CH.limpa(); CH.base();
+    const v = VIEWS[this.view];
+    document.querySelectorAll('#nav a, #mnav a').forEach(a => a.classList.toggle('on', a.dataset.v === this.view));
+    document.getElementById('titulo').innerHTML = F.esc(v.t) + (CFG.demo ? '<span class="demo-pill" title="Dados de exemplo. Conecte a base em Configurações.">Dados de exemplo</span>' : '');
+    const escopo = [ENG.f.vend && 'Vendedor ' + ENG.f.vend, ENG.f.cli, ENG.f.prod, ENG.f.canal].filter(Boolean).join(' · ');
+    document.getElementById('subtitulo').textContent = `${v.s || 'Performance Comercial'} • Jan a ${MESES[ENG.f.mFim - 1]} / ${ENG.f.ano}${escopo ? ' • ' + escopo : ''}`;
+    document.getElementById('filtros').style.visibility = v.semFiltro ? 'hidden' : '';
+    const el = document.getElementById('view');
+    try { el.innerHTML = v.html(); v.pos && v.pos(); } catch (e) { console.error(e); el.innerHTML = `<div class="card"><h3>Não foi possível montar esta tela</h3><p class="help">${F.esc(e.message)}</p></div>`; }
+    document.getElementById('rod-info').textContent = `Raffinée Analytics • v${APP_VERSION} • ${DB.fonte}`;
+    document.getElementById('ver-side').textContent = `v${APP_VERSION}`;
+  },
+  toast(msg, ms = 2800) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), ms); },
+  drawer(html, pos) { document.getElementById('overlay').innerHTML = `<div class="scrim" onclick="if(event.target===this)UI.fecha()"><div class="drawer" role="dialog" aria-modal="true">${html}</div></div>`; pos && pos(); document.addEventListener('keydown', UI._esc); },
+  _esc(e) { if (e.key === 'Escape') UI.fecha(); },
+  fecha() { document.getElementById('overlay').innerHTML = ''; document.removeEventListener('keydown', UI._esc); },
+  csv(nome, cab, linhas) {
+    const esc = v => { const s = String(v ?? ''); return /[;"\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+    const txt = '﻿' + [cab, ...linhas].map(l => l.map(esc).join(';')).join('\n');
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([txt], { type: 'text/csv;charset=utf-8' })); a.download = nome; document.body.appendChild(a); a.click(); a.remove();
+  },
+  /** Tabela ordenável simples */
+  tabela(id, cols, linhas, opts = {}) {
+    const st = (this._ord ||= {})[id] || { i: opts.ordem ?? 1, d: -1 };
+    const ord = [...linhas].sort((a, b) => { const x = a.v[st.i], y = b.v[st.i]; return (typeof x === 'number' && typeof y === 'number' ? x - y : String(x ?? '').localeCompare(String(y ?? ''), 'pt-BR')) * st.d; });
+    const body = ord.map(l => `<tr class="${l.click ? 'click' : ''}" ${l.click ? `onclick="${l.click}"` : ''}>${cols.map((c, i) => `<td class="${c.n ? 'n' : ''}">${l.h[i]}</td>`).join('')}</tr>`).join('');
+    return `<div class="tbl-wrap"><table class="t" id="${id}"><thead><tr>${cols.map((c, i) => `<th class="${c.n ? 'n' : ''}" onclick="UI.ordena('${id}',${i})">${c.t}${st.i === i ? (st.d > 0 ? ' ▲' : ' ▼') : ''}</th>`).join('')}</tr></thead><tbody>${body || `<tr><td colspan="${cols.length}" style="text-align:center;color:var(--txt-3);padding:24px">Nenhum registro no período.</td></tr>`}</tbody>${opts.foot ? `<tfoot><tr>${opts.foot.map((f, i) => `<td class="${cols[i]?.n ? 'n' : ''}">${f}</td>`).join('')}</tr></tfoot>` : ''}</table></div>`;
+  },
+  ordena(id, i) { const o = (this._ord ||= {})[id] || { i: 1, d: -1 }; this._ord[id] = { i, d: o.i === i ? -o.d : -1 }; this.render(); }
+};
+const varCell = v => `<span class="${clsVar(v)}">${F.var(v)}</span>`;
+const pillAting = p => p === null ? '<span class="pill p-neu">sem meta</span>' : `<span class="pill ${p >= 1 ? 'p-ok' : p >= .9 ? 'p-warn' : 'p-bad'}">${F.pct(p)}</span>`;
+const miniBar = (p, max = 1.2) => { const w = Math.max(0, Math.min(1, (p || 0) / max)) * 100; const c = p >= 1 ? 'var(--ok)' : p >= .9 ? 'var(--warn)' : 'var(--bad)'; return `<span class="mini"><i style="width:${w}%;background:${c}"></i></span>`; };
+const ST = { comprou: ['Comprou no mês', 'p-ok', '#5A1E24'], aguardando: ['Ainda não comprou', 'p-warn', '#B8905A'], risco: ['Em risco', 'p-bad', '#D9A13B'], inativo: ['Inativo', 'p-neu', '#E0564F'] };
+
+/* ---------------- VIEWS ---------------- */
+let K = null; // indicadores do render atual
+const VIEWS = {};
+
+/* === Visão Executiva === */
+VIEWS.visao = { t: 'Visão Executiva',
+  html() {
+    K = ENG.calc(); const k = K;
+    const tile = (icn, lb, v, d, sid) => `<div class="card kpi">${''}<div class="lb">${ic(icn)}<span>${lb}</span></div><div class="v">${v}</div><div class="d">${d}</div><div class="spark"><canvas id="${sid}"></canvas></div></div>`;
+    const cobA = k.cartAnt.cobertura;
+    const tiles = [
+      tile('moedas', 'Faturamento<br>acumulado', F.brlC(k.c.val).replace(/ (mi|mil)$/, ' <small>$1</small>'), `<span class="${clsVar(k.gR)}">${seta(k.gR)} ${F.var(k.gR)}</span> vs. ${ENG.f.ano - 1}`, 'sp1'),
+      tile('alvo', 'Atingimento<br>da meta', F.pct(k.ating), k.ating === null ? 'sem meta cadastrada' : `<span class="${k.gap >= 0 ? 'up' : 'dn'}">${k.gap >= 0 ? '↑' : '↓'} ${F.brlC(k.gap)}</span> vs. meta`, 'sp2'),
+      tile('cresc', 'Crescimento<br>YoY', `<span class="${clsVar(k.gR)}">${F.var(k.gR)}</span>`, `em kg: <span class="${clsVar(k.gK)}">${F.var(k.gK)}</span>`, 'sp3'),
+      tile('caixa', 'Volume<br>acumulado', F.kg(k.c.kg).replace(/ (t|kg)$/, ' <small>$1</small>'), `<span class="${clsVar(k.gK)}">${seta(k.gK)} ${F.var(k.gK)}</span> vs. ${ENG.f.ano - 1}`, 'sp4'),
+      tile('clientes', 'Clientes<br>ativos (90 dias)', F.int(k.at), `<span class="${clsVar(k.atAnt ? k.at / k.atAnt - 1 : null)}">${seta(k.at - k.atAnt)} ${F.var(k.atAnt ? k.at / k.atAnt - 1 : null)}</span> vs. ${ENG.f.ano - 1}`, 'sp5'),
+      tile('pizza', 'Cobertura da<br>carteira no mês', F.pct(k.cart.cobertura), `<span class="${clsVar(cobA !== null && k.cart.cobertura !== null ? k.cart.cobertura - cobA : null)}">${F.pp(cobA !== null && k.cart.cobertura !== null ? k.cart.cobertura - cobA : null)}</span> vs. ${ENG.f.ano - 1}`, 'sp6'),
+      tile('tag', 'R$/Kg<br>médio', F.brl2(k.rkg), `<span class="${clsVar(k.rkgA ? k.rkg / k.rkgA - 1 : null)}">${seta(k.rkg - k.rkgA)} ${F.var(k.rkgA ? k.rkg / k.rkgA - 1 : null)}</span> vs. ${ENG.f.ano - 1}`, 'sp7')
+    ].join('');
+    const r = k.ritmo;
+    const ritmoHtml = k.metaAno === null ? `<p class="help">Cadastre metas em <a href="#metas">Planejamento / Metas</a> para calcular o ritmo necessário.</p>` : `
+      <div class="kv"><div>Meta anual</div><div><b>${F.brlC(k.metaAno)}</b></div><div>Realizado</div><div><b>${F.brlC(k.c.val)}</b></div>
+      <div class="hl">Falta vender</div><div class="hl"><b>${F.brlC(k.falta)}</b></div><div>Meses restantes</div><div><b>${nf(1).format(k.restantes).replace(',0', '')}</b></div></div>
+      <div class="ritmo-big"><span class="t">Ritmo necessário</span><b>${F.brlC(r)}/mês</b></div>
+      <div class="ritmo-big" style="padding-top:0"><span>Média últimos 3 meses</span><span style="font-size:18px;font-weight:700">${F.brlC(k.media3)}/mês</span></div>
+      ${k.acel > 0 ? `<div class="alerta">${ic('seta')}<div><b>Precisa acelerar ${F.pct(k.acel, 0)}</b><br>em relação à média dos últimos 3 meses.</div></div>` : `<div class="alerta ok">${ic('check')}<div><b>No ritmo</b><br>a média recente já cobre o necessário para bater a meta anual.</div></div>`}`;
+    const cc = k.cart.cont;
+    const donut = `<div class="donut-wrap"><div class="donut"><canvas id="dn"></canvas><div class="c"><b>${k.cart.total}</b><span>clientes</span></div></div>
+      <div class="dleg">${Object.entries(ST).map(([s, [n, , cor]]) => `<button onclick="VIEWS.cobertura.abre('${s}')"><i style="background:${cor}"></i><span>${n.replace('Ainda não comprou', 'Ainda não compraram').replace('Comprou no mês', 'Compraram')}<b>${cc[s]} (${F.pct(k.cart.total ? cc[s] / k.cart.total : 0)})</b></span></button>`).join('')}</div></div>`;
+    const topV = k.vends.slice(0, 6);
+    const vbars = topV.map(v => { const w = Math.min(1, (v.ating || 0) / 1.25) * 100; const cor = v.ating >= 1 ? 'var(--ok)' : v.ating >= .9 ? 'var(--champ-2)' : 'var(--bad)';
+      return `<div class="bar click" onclick="VIEWS.vendedores.abre('${F.esc(v.k).replace(/'/g, "\\'")}')"><span class="nm">${F.esc(v.k)}</span><span class="tr"><span class="fi" style="display:block;width:${w}%;background:${cor}"></span></span><span class="vl ${v.ating >= 1 ? 'up' : v.ating >= .9 ? 'nt' : 'dn'}">${F.pct(v.ating, 0)}</span></div>`; }).join('');
+    const at = ENG.atencao(k);
+    return `
+    <div class="kpis">${tiles}</div>
+    <div class="row2">
+      <div class="card"><h3>${ic('visao')}Objetivo x Realizado acumulado<span class="dir leg"><span><i class="d"></i>${k.serieMeta ? 'Meta acumulada' : (ENG.f.ano - 1) + ' acumulado'}</span><span><i></i>Realizado acumulado</span></span></h3><div class="chart-box" style="height:250px"><canvas id="acum"></canvas></div></div>
+      <div class="card"><h3>${ic('vel')}Ritmo Necessário</h3>${ritmoHtml}</div>
+    </div>
+    <div class="row4">
+      <div class="card"><h3>${ic('clientes')}Clientes ativos x sem compra</h3>${donut}</div>
+      <div class="card"><h3>${ic('caixa')}Top produtos</h3><span class="seg" id="seg-tp"><button class="on" data-m="val">R$ acumulado</button><button data-m="kg">Kg acumulado</button></span><div class="bars" id="tp"></div></div>
+      <div class="card"><h3>${ic('vend')}Desempenho dos vendedores<span class="dir">Ating. da meta</span></h3><div class="bars">${vbars || '<p class="help">Sem metas por vendedor.</p>'}</div></div>
+      <div class="card"><h3>${ic('cresc')}Matriz de Crescimento</h3><div class="chart-box" style="height:200px"><canvas id="mx"></canvas></div></div>
+    </div>
+    <div class="card" id="bloco-atencao"><h3>${ic('alerta', 'style="color:var(--warn)"')}Pontos de Atenção<span class="dir">${at.length} sinais</span></h3>
+      <div class="atencao">${at.slice(0, 8).map(a => `<button class="at ${a.sev === 'ok' ? 'ok' : a.sev === 'warn' ? 'warn' : ''}" onclick="UI.go('${a.go}')"><span class="ic">${ic(a.ic)}</span><span>${a.h}</span><span class="go">›</span></button>`).join('') || '<p class="help">Nenhum ponto de atenção no período.</p>'}</div></div>`;
+  },
+  pos() {
+    const k = K, fm = ENG.f.mFim;
+    const serie = k.mensal.slice(0, fm);
+    CH.spark(document.getElementById('sp1'), serie.map(x => x.val));
+    let a = 0, b = 0; CH.spark(document.getElementById('sp2'), serie.map((x, i) => { a += x.val; b += k.serieMeta ? k.serieMeta[i].val : 0; return b ? a / b : 0; }));
+    CH.spark(document.getElementById('sp3'), serie.map((x, i) => k.mensalAnt[i].val ? x.val / k.mensalAnt[i].val - 1 : 0), CH.css('--ok'));
+    CH.spark(document.getElementById('sp4'), serie.map(x => x.kg));
+    const ativosM = []; for (let m = 1; m <= fm; m++) { const d = `${ENG.f.ano}-${String(m).padStart(2, '0')}-${String(ENG.diasMes(ENG.f.ano, m)).padStart(2, '0')}`; ativosM.push(ENG.ativos90(d > ENG.ref() ? ENG.ref() : d)); }
+    CH.spark(document.getElementById('sp5'), ativosM);
+    const cobM = []; const sv = ENG.f.mFim; for (let m = 1; m <= fm; m++) { ENG.f.mFim = m; cobM.push(ENG.carteira().cobertura || 0); } ENG.f.mFim = sv;
+    CH.spark(document.getElementById('sp6'), cobM);
+    CH.spark(document.getElementById('sp7'), serie.map(x => x.kg ? x.val / x.kg : null));
+    CH.acumulado(document.getElementById('acum'), k, 250);
+    const cc = k.cart.cont;
+    CH.novo(document.getElementById('dn'), { type: 'doughnut', data: { labels: Object.values(ST).map(s => s[0]), datasets: [{ data: [cc.comprou, cc.aguardando, cc.risco, cc.inativo], backgroundColor: Object.values(ST).map(s => s[2]), borderWidth: 2, borderColor: CH.css('--card') }] }, options: { cutout: '64%', onClick: (e, el) => el[0] && VIEWS.cobertura.abre(Object.keys(ST)[el[0].index]) } });
+    const tp = m => { const arr = [...k.prods].sort((x, y) => y[m] - x[m]).slice(0, 6); const mx = arr[0]?.[m] || 1;
+      document.getElementById('tp').innerHTML = arr.map(p => `<div class="bar click" onclick="VIEWS.produtos.abre('${F.esc(p.k).replace(/'/g, "\\'")}')"><span class="nm" title="${F.esc(p.k)}">${F.esc(p.k)}</span><span class="tr"><span class="fi" style="display:block;width:${p[m] / mx * 100}%;opacity:${.55 + .45 * p[m] / mx}"></span></span><span class="vl">${m === 'val' ? F.brlC(p.val) : F.kg(p.kg)}</span></div>`).join(''); };
+    tp('val');
+    document.getElementById('seg-tp').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; document.querySelectorAll('#seg-tp button').forEach(x => x.classList.toggle('on', x === b)); tp(b.dataset.m); });
+    VIEWS.produtos.matriz(document.getElementById('mx'), k, false);
+  }
+};
+
+/* === Objetivo x Realizado === */
+VIEWS.objetivo = { t: 'Objetivo x Realizado', dim: 'vend',
+  html() {
+    K = ENG.calc(); const k = K; const d = this.dim;
+    const dims = { vend: 'Vendedor', cli: 'Cliente', prod: 'Produto' };
+    const tipo = { vend: 'VENDEDOR', cli: 'CLIENTE', prod: 'PRODUTO' }[d];
+    const campo = { vend: 'vend', cli: 'cli', prod: 'prod' }[d];
+    const cur = ENG.periodo(ENG.f.ano, 1, ENG.f.mFim, { [campo]: true });
+    const g = ENG.agrupa(cur, campo);
+    const chaves = new Set([...g.keys(), ...DB.metas.filter(m => m.ano === ENG.f.ano && m.tipo === tipo).map(m => m.chave)]);
+    const linhas = [...chaves].filter(Boolean).filter(x => !ENG.f[campo] || x === ENG.f[campo]).map(ch => { const x = g.get(ch) || { val: 0, kg: 0 };
+      const ms = ENG.metaAcum((() => { const o = []; let t = false; for (let m = 1; m <= 12; m++) { const r = ENG.metaMes(tipo, ch, ENG.f.ano, m); if (r) t = true; o.push(r || { val: 0, kg: 0 }); } return t ? o : null; })());
+      const at = ms?.val ? x.val / ms.val : null, atk = ms?.kg ? x.kg / ms.kg : null;
+      return { v: [ch, ms?.val ?? -1, x.val, at ?? -1, ms ? x.val - ms.val : -1e15, ms?.kg ?? -1, x.kg, atk ?? -1], h: [F.esc(ch), ms ? F.brl(ms.val) : '—', F.brl(x.val), miniBar(at) + pillAting(at), ms ? `<span class="${x.val - ms.val >= 0 ? 'up' : 'dn'}">${F.brl(x.val - ms.val)}</span>` : '—', ms ? F.kgN(ms.kg) : '—', F.kgN(x.kg), pillAting(atk)],
+        click: d === 'vend' ? `VIEWS.vendedores.abre('${F.esc(ch).replace(/'/g, "\\'")}')` : d === 'cli' ? `VIEWS.clientes.abreNome('${F.esc(ch).replace(/'/g, "\\'")}')` : `VIEWS.produtos.abre('${F.esc(ch).replace(/'/g, "\\'")}')` }; });
+    const semMeta = linhas.filter(l => l.v[1] < 0).length;
+    const mt = k.serieMeta; const fr = k.fr;
+    const mensalRows = MESES.map((m, i) => { const real = k.mensal[i].val, meta = mt ? mt[i].val : null; const fut = i + 1 > ENG.f.mFim; const parcial = i + 1 === ENG.f.mFim && fr < 1;
+      const mp = meta !== null ? meta * (parcial ? fr : 1) : null;
+      return `<tr><td>${m}${parcial ? ' <span class="pill p-neu">parcial</span>' : ''}</td><td class="n">${meta !== null ? F.brl(meta) : '—'}</td><td class="n">${fut ? '—' : F.brl(real)}</td><td class="n">${fut || !mp ? '—' : pillAting(real / mp)}</td><td class="n">${fut ? '—' : F.brl(k.mensalAnt[i].val)}</td><td class="n">${fut ? '—' : varCell(k.mensalAnt[i].val ? real / k.mensalAnt[i].val - 1 : null)}</td><td class="n">${fut ? '—' : F.kgN(k.mensal[i].kg)}</td></tr>`; }).join('');
+    return `
+    <div class="row2">
+      <div class="card"><h3>${ic('visao')}Meta acumulada x realizado acumulado<span class="dir leg"><span><i class="d"></i>${k.serieMeta ? 'Meta' : 'Ano anterior'}</span><span><i></i>Realizado</span></span></h3><div class="chart-box" style="height:280px"><canvas id="acum"></canvas></div></div>
+      <div class="card" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px"><h3 style="align-self:flex-start">${ic('vel')}Atingimento acumulado</h3>
+        ${gauge(k.ating, k.metaAc ? `Meta até ${F.data(ENG.ref())}: ${F.brlC(k.metaAc.val)}` : 'Sem meta para o filtro atual')}
+        <div class="mk" style="width:100%;margin-top:8px"><div class="card"><div class="l">Realizado</div><div class="v">${F.brlC(k.c.val)}</div></div><div class="card"><div class="l">Gap</div><div class="v ${k.gap >= 0 ? 'up' : 'dn'}">${k.gap === null ? '—' : F.brlC(k.gap)}</div></div><div class="card"><div class="l">Kg x meta</div><div class="v">${k.metaAc?.kg ? F.pct(k.c.kg / k.metaAc.kg) : '—'}</div></div></div>
+        ${fr < 1 ? `<p class="help" style="margin:4px 0 0">A meta de ${MESES[ENG.f.mFim - 1]} entra proporcional aos dias já corridos (${F.pct(fr, 0)} do mês).</p>` : ''}</div>
+    </div>
+    <div class="card"><h3>${ic('alvo')}Objetivo x Realizado por ${dims[d].toLowerCase()}<span class="dir"><span class="seg">${Object.entries(dims).map(([x, n]) => `<button class="${x === d ? 'on' : ''}" onclick="VIEWS.objetivo.dim='${x}';UI.render()">${n}</button>`).join('')}</span></span></h3>
+      ${semMeta ? `<p class="help" style="margin:-4px 0 10px">${semMeta} ${dims[d].toLowerCase()}(s) sem meta cadastrada aparecem com “sem meta”.</p>` : ''}
+      ${UI.tabela('t-obj', [{ t: dims[d] }, { t: 'Meta R$', n: 1 }, { t: 'Realizado R$', n: 1 }, { t: 'Ating. R$', n: 1 }, { t: 'Gap R$', n: 1 }, { t: 'Meta kg', n: 1 }, { t: 'Realizado kg', n: 1 }, { t: 'Ating. kg', n: 1 }], linhas, { ordem: 2 })}</div>
+    <div class="card"><h3>${ic('meta')}Mês a mês</h3><div class="tbl-wrap"><table class="t"><thead><tr><th>Mês</th><th class="n">Meta</th><th class="n">Realizado</th><th class="n">Ating.</th><th class="n">${ENG.f.ano - 1}</th><th class="n">Var. YoY</th><th class="n">Kg</th></tr></thead><tbody>${mensalRows}</tbody></table></div></div>`;
+  },
+  pos() { CH.acumulado(document.getElementById('acum'), K, 280); }
+};
+
+/* === Clientes === */
+VIEWS.clientes = { t: 'Clientes', busca: '',
+  html() {
+    K = ENG.calc(); const k = K;
+    const cur = ENG.periodo(ENG.f.ano, 1, ENG.f.mFim), prev = ENG.periodo(ENG.f.ano - 1, 1, ENG.f.mFim);
+    const g = ENG.agrupa(cur, 'cc'), gA = ENG.agrupa(prev, 'cc');
+    const info = new Map(k.cart.lista.map(c => [c.cod, c]));
+    const cods = new Set([...g.keys(), ...k.cart.lista.map(c => c.cod)]);
+    const nome = new Map(DB.clientes.map(c => [String(c.COD_CLIENTE), c]));
+    let linhas = [...cods].map(cod => { const x = g.get(cod) || { val: 0, kg: 0, peds: new Set() }, a = gA.get(cod) || { val: 0 }, i = info.get(cod) || {}, c = nome.get(cod) || {};
+      const cr = a.val ? x.val / a.val - 1 : null; const s = ST[i.st] || ['—', 'p-neu'];
+      return { cli: c.CLIENTE || cod, v: [c.CLIENTE || cod, c.VENDEDOR || '', x.val, cr ?? -99, x.kg, x.kg ? x.val / x.kg : 0, x.peds.size, i.freq ?? 999, i.dias ?? 9999, i.st || ''],
+        h: [F.esc(c.CLIENTE || cod), F.esc(c.VENDEDOR || ''), F.brl(x.val), varCell(cr), F.kgN(x.kg), x.kg ? F.brl2(x.val / x.kg) : '—', F.int(x.peds.size), i.freq ? `a cada ${Math.round(i.freq)} d` : '—', i.dias ?? '—', `<span class="pill ${s[1]}">${s[0]}</span>`], click: `VIEWS.clientes.abre('${cod}')` }; });
+    const b = this.busca.toLowerCase(); if (b) linhas = linhas.filter(l => l.cli.toLowerCase().includes(b));
+    const tot = linhas.reduce((a, l) => a + l.v[2], 0);
+    return `
+    <div class="mk">
+      <div class="card"><div class="l">Clientes compradores no período</div><div class="v">${F.int(k.nCli)}</div></div>
+      <div class="card"><div class="l">Clientes ativos (90 dias)</div><div class="v">${F.int(k.at)}</div></div>
+      <div class="card"><div class="l">Ticket médio por pedido</div><div class="v">${F.brlC(k.c.val / Math.max(1, new Set(ENG.periodo(ENG.f.ano, 1, ENG.f.mFim).map(v => v.ped)).size))}</div></div>
+      <div class="card"><div class="l">Top 5 concentram</div><div class="v">${F.pct(k.conc5, 0)}</div></div>
+      <div class="card"><div class="l">Top 10 concentram</div><div class="v">${F.pct(k.conc10, 0)}</div></div>
+      <div class="card"><div class="l">Em risco de recompra</div><div class="v dn">${k.cart.cont.risco}</div></div>
+    </div>
+    <div class="card"><h3>${ic('clientes')}Carteira de clientes<span class="dir"><button class="btn sm" onclick="VIEWS.clientes.exporta()">${ic('down')}Exportar CSV</button></span></h3>
+      <div class="toolbar"><input type="search" id="bc" placeholder="Buscar cliente…" value="${F.esc(this.busca)}"></div>
+      ${UI.tabela('t-cli', [{ t: 'Cliente' }, { t: 'Vendedor' }, { t: 'Faturamento', n: 1 }, { t: 'Var. YoY', n: 1 }, { t: 'Kg', n: 1 }, { t: 'R$/kg', n: 1 }, { t: 'Pedidos', n: 1 }, { t: 'Frequência', n: 1 }, { t: 'Dias s/ compra', n: 1 }, { t: 'Situação' }], linhas, { ordem: 2, foot: ['Total', '', F.brl(tot), '', '', '', '', '', '', ''] })}</div>`;
+  },
+  pos() { const i = document.getElementById('bc'); i.addEventListener('input', () => { clearTimeout(this._t); this._t = setTimeout(() => { this.busca = i.value; UI.render(); const n = document.getElementById('bc'); n.focus(); n.setSelectionRange(n.value.length, n.value.length); }, 250); }); },
+  exporta() { const c = K.cart.lista; UI.csv(`clientes_${ENG.f.ano}_${ENG.f.mFim}.csv`, ['Código', 'Cliente', 'Vendedor', 'Canal', 'Situação', 'Última compra', 'Dias sem comprar', 'Frequência (dias)', 'Média mensal R$'], c.map(x => [x.cod, x.cli, x.vend, x.canal, ST[x.st][0], F.data(x.ultima), x.dias ?? '', x.freq ? Math.round(x.freq) : '', Math.round(x.media)])); },
+  abreNome(n) { const c = DB.clientes.find(x => x.CLIENTE === n); if (c) this.abre(String(c.COD_CLIENTE)); },
+  abre(cod) {
+    const c = DB.clientes.find(x => String(x.COD_CLIENTE) === cod) || { CLIENTE: cod }; const nm = c.CLIENTE;
+    const ano = ENG.f.ano, mf = ENG.f.mFim;
+    const todas = DB.vendas.filter(v => v.cc === cod);
+    const cur = todas.filter(v => v.y === ano && v.m <= mf), prev = todas.filter(v => v.y === ano - 1 && v.m <= mf);
+    const s = ENG.soma(cur), p = ENG.soma(prev);
+    const inf = ENG.carteira({ cli: nm, vend: '', canal: '' }).lista[0] || {};
+    const ms = ENG.metaAcum(ENG.metasSerie({ cli: nm }));
+    const mens = Array(12).fill(0), mensA = Array(12).fill(0); todas.forEach(v => { if (v.y === ano) mens[v.m - 1] += v.val; if (v.y === ano - 1) mensA[v.m - 1] += v.val; });
+    const gp = [...ENG.agrupa(cur, 'prod').values()].sort((a, b) => b.val - a.val);
+    const compra = new Set(todas.map(v => v.prod));
+    const relevantes = K.prods.filter(pp => !compra.has(pp.k)).slice(0, 6);
+    const st = ST[inf.st] || ['—', 'p-neu'];
+    UI.drawer(`<div class="hd"><div><div class="help">${F.esc(c.VENDEDOR || '')} · ${F.esc(c.CANAL || '')} ${c.CIDADE ? '· ' + F.esc(c.CIDADE) + '/' + F.esc(c.UF || '') : ''}</div><h2>${F.esc(nm)}</h2><span class="pill ${st[1]}">${st[0]}</span></div><button class="x" onclick="UI.fecha()" aria-label="Fechar">✕</button></div>
+      <div class="mk">
+        <div class="card"><div class="l">Faturamento acumulado</div><div class="v">${F.brlC(s.val)}</div></div>
+        <div class="card"><div class="l">Kg acumulados</div><div class="v">${F.kg(s.kg)}</div></div>
+        <div class="card"><div class="l">Var. YoY R$</div><div class="v ${clsVar(p.val ? s.val / p.val - 1 : null)}">${F.var(p.val ? s.val / p.val - 1 : null)}</div></div>
+        <div class="card"><div class="l">Meta / Ating.</div><div class="v">${ms ? F.pct(s.val / ms.val) : '—'}</div></div>
+        <div class="card"><div class="l">Frequência de compra</div><div class="v">${inf.freq ? Math.round(inf.freq) + ' dias' : '—'}</div></div>
+        <div class="card"><div class="l">Última compra</div><div class="v" style="font-size:16px">${F.data(inf.ultima)}<br><span class="help">${inf.dias ?? '—'} dias atrás</span></div></div>
+        <div class="card"><div class="l">Mix comprado</div><div class="v">${gp.length} itens</div></div>
+        <div class="card"><div class="l">Média mensal (12m)</div><div class="v">${F.brlC(inf.media || 0)}</div></div>
+      </div>
+      ${inf.atraso > 0 && inf.st !== 'comprou' ? `<div class="alerta">${ic('relogio')}<div><b>Atraso de compra:</b> costuma comprar a cada ${Math.round(inf.freq)} dias e está há ${inf.dias} dias sem pedir.</div></div>` : ''}
+      <div class="card"><h3>${ic('visao')}Evolução mensal</h3><div class="chart-box" style="height:200px"><canvas id="cm"></canvas></div></div>
+      <div class="card"><h3>${ic('prod')}Produtos que compra</h3><div class="bars">${gp.map(x => `<div class="bar"><span class="nm">${F.esc(x.k)}</span><span class="tr"><span class="fi" style="display:block;width:${x.val / (gp[0]?.val || 1) * 100}%"></span></span><span class="vl">${F.brlC(x.val)} · ${F.kg(x.kg)}</span></div>`).join('') || '<p class="help">Sem compras no período.</p>'}</div></div>
+      <div class="card"><h3>${ic('tag')}Oportunidades: produtos relevantes que ainda não compra</h3><div class="chips">${relevantes.map(r => `<span class="chip op">${F.esc(r.k)}</span>`).join('') || '<span class="help">Compra todo o mix relevante.</span>'}</div></div>`,
+      () => CH.novo(document.getElementById('cm'), { type: 'bar', data: { labels: MESES, datasets: [{ label: String(ano - 1), data: mensA, backgroundColor: CH.css('--bege'), borderRadius: 4 }, { label: String(ano), data: mens, backgroundColor: CH.css('--vinho'), borderRadius: 4 }] }, options: { plugins: { legend: { display: true, position: 'bottom' }, tooltip: { callbacks: { label: t => ` ${t.dataset.label}: ${F.brlC(t.raw)}` } } }, scales: { y: { ticks: { callback: v => F.brlC(v) } }, x: { grid: { display: false } } } } }));
+  }
+};
+
+/* === Vendedores === */
+VIEWS.vendedores = { t: 'Vendedores',
+  html() { K = ENG.calc(); const vs = K.vends.filter(v => !ENG.f.vend || v.k === ENG.f.vend);
+    return `<div class="vcards">${vs.map(v => { const cart = ENG.carteira({ vend: v.k }); return `<div class="card vcard" onclick="VIEWS.vendedores.abre('${F.esc(v.k).replace(/'/g, "\\'")}')"><div class="nm">${F.esc(v.k)}</div>
+      ${gauge(v.ating, 'da meta acumulada')}
+      <div class="ln"><span>Realizado</span><b>${F.brlC(v.val)}</b></div><div class="ln"><span>Meta acumulada</span><b>${v.meta !== null ? F.brlC(v.meta) : '—'}</b></div>
+      <div class="ln"><span>Var. YoY</span><b class="${clsVar(v.gR)}">${F.var(v.gR)}</b></div><div class="ln"><span>Kg</span><b>${F.kg(v.kg)}</b></div>
+      <div class="ln"><span>Cobertura no mês</span><b>${F.pct(cart.cobertura, 0)} · ${cart.cont.comprou}/${cart.total - cart.cont.inativo}</b></div></div>`; }).join('')}</div>
+    <div class="card"><h3>${ic('vend')}Comparativo</h3>${UI.tabela('t-vend', [{ t: 'Vendedor' }, { t: 'Meta', n: 1 }, { t: 'Realizado', n: 1 }, { t: 'Ating.', n: 1 }, { t: 'Gap', n: 1 }, { t: 'Var. R$', n: 1 }, { t: 'Var. kg', n: 1 }, { t: 'Kg', n: 1 }, { t: 'R$/kg', n: 1 }, { t: 'Ticket médio', n: 1 }, { t: 'Clientes', n: 1 }],
+      vs.map(v => ({ v: [v.k, v.meta ?? -1, v.val, v.ating ?? -1, v.gap ?? -1e15, v.gR ?? -99, v.gK ?? -99, v.kg, v.rkg, v.ticket, v.clis], h: [F.esc(v.k), v.meta !== null ? F.brl(v.meta) : '—', F.brl(v.val), pillAting(v.ating), v.gap !== null ? `<span class="${v.gap >= 0 ? 'up' : 'dn'}">${F.brl(v.gap)}</span>` : '—', varCell(v.gR), varCell(v.gK), F.kgN(v.kg), F.brl2(v.rkg), F.brl(v.ticket), v.clis], click: `VIEWS.vendedores.abre('${F.esc(v.k).replace(/'/g, "\\'")}')` })), { ordem: 3 })}</div>`; },
+  abre(nome) {
+    const v = K.vends.find(x => x.k === nome) || { k: nome, val: 0, kg: 0, meta: null, ating: null };
+    const cur = ENG.periodo(ENG.f.ano, 1, ENG.f.mFim, { vend: true }).filter(x => x.vend === nome);
+    const cart = ENG.carteira({ vend: nome });
+    const topC = [...ENG.agrupa(cur, 'cli').values()].sort((a, b) => b.val - a.val).slice(0, 8);
+    const topP = [...ENG.agrupa(cur, 'prod').values()].sort((a, b) => b.val - a.val);
+    const vendeu = new Set(topP.map(p => p.k)); const naoTrab = DB.listaProd.filter(p => !vendeu.has(p));
+    const ms = ENG.metasSerie({ vend: nome, cli: '', prod: '', canal: '' }); const mens = Array(12).fill(0); cur.forEach(x => mens[x.m - 1] += x.val);
+    const pend = cart.lista.filter(c => c.st === 'aguardando' || c.st === 'risco').sort((a, b) => (b.media || 0) - (a.media || 0));
+    UI.drawer(`<div class="hd"><div><div class="help">Painel do vendedor</div><h2>${F.esc(nome)}</h2></div><button class="x" onclick="UI.fecha()" aria-label="Fechar">✕</button></div>
+      <div class="row2" style="grid-template-columns:minmax(0,1fr) minmax(0,1.2fr)"><div class="card">${gauge(v.ating, 'da meta acumulada')}</div>
+      <div class="mk" style="align-content:start"><div class="card"><div class="l">Realizado</div><div class="v">${F.brlC(v.val)}</div></div><div class="card"><div class="l">Meta acumulada</div><div class="v">${v.meta !== null ? F.brlC(v.meta) : '—'}</div></div>
+      <div class="card"><div class="l">Kg vendidos</div><div class="v">${F.kg(v.kg)}</div></div><div class="card"><div class="l">Var. YoY</div><div class="v ${clsVar(v.gR)}">${F.var(v.gR)}</div></div>
+      <div class="card"><div class="l">R$/kg</div><div class="v">${F.brl2(v.rkg || 0)}</div></div><div class="card"><div class="l">Ticket médio</div><div class="v">${F.brlC(v.ticket || 0)}</div></div></div></div>
+      <div class="mk"><div class="card"><div class="l">Carteira</div><div class="v">${cart.total}</div></div><div class="card"><div class="l">Compraram no mês</div><div class="v up">${cart.cont.comprou}</div></div><div class="card"><div class="l">Ainda não compraram</div><div class="v nt">${cart.cont.aguardando}</div></div><div class="card"><div class="l">Em risco</div><div class="v dn">${cart.cont.risco}</div></div><div class="card"><div class="l">Inativos</div><div class="v">${cart.cont.inativo}</div></div></div>
+      <div class="card"><h3>${ic('visao')}Meta x realizado por mês</h3><div class="chart-box" style="height:200px"><canvas id="vm"></canvas></div></div>
+      <div class="card"><h3>${ic('relogio')}Clientes para ligar agora</h3>${pend.length ? `<div class="tbl-wrap"><table class="t"><thead><tr><th>Cliente</th><th>Situação</th><th class="n">Última compra</th><th class="n">Dias</th><th class="n">Média mensal</th></tr></thead><tbody>${pend.map(c => `<tr class="click" onclick="VIEWS.clientes.abre('${c.cod}')"><td>${F.esc(c.cli)}</td><td><span class="pill ${ST[c.st][1]}">${ST[c.st][0]}</span></td><td class="n">${F.data(c.ultima)}</td><td class="n">${c.dias}</td><td class="n">${F.brlC(c.media)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="help">Toda a carteira ativa já comprou no mês.</p>'}</div>
+      <div class="row2" style="grid-template-columns:1fr 1fr"><div class="card"><h3>${ic('clientes')}Top clientes</h3><div class="bars">${topC.map(x => `<div class="bar"><span class="nm">${F.esc(x.k)}</span><span class="tr"><span class="fi" style="display:block;width:${x.val / (topC[0]?.val || 1) * 100}%"></span></span><span class="vl">${F.brlC(x.val)}</span></div>`).join('')}</div></div>
+      <div class="card"><h3>${ic('prod')}Top produtos</h3><div class="bars">${topP.slice(0, 8).map(x => `<div class="bar"><span class="nm">${F.esc(x.k)}</span><span class="tr"><span class="fi" style="display:block;width:${x.val / (topP[0]?.val || 1) * 100}%"></span></span><span class="vl">${F.brlC(x.val)}</span></div>`).join('')}</div>
+      <h3 style="margin-top:16px">${ic('tag')}Produtos não trabalhados</h3><div class="chips">${naoTrab.map(p => `<span class="chip op">${F.esc(p)}</span>`).join('') || '<span class="help">Vende todo o portfólio.</span>'}</div></div></div>`,
+      () => CH.novo(document.getElementById('vm'), { type: 'bar', data: { labels: MESES.slice(0, ENG.f.mFim), datasets: [{ label: 'Meta', data: ms ? ms.slice(0, ENG.f.mFim).map(x => x.val) : [], backgroundColor: CH.css('--bege'), borderRadius: 4 }, { label: 'Realizado', data: mens.slice(0, ENG.f.mFim), backgroundColor: CH.css('--vinho'), borderRadius: 4 }] }, options: { plugins: { legend: { display: true, position: 'bottom' }, tooltip: { callbacks: { label: t => ` ${t.dataset.label}: ${F.brlC(t.raw)}` } } }, scales: { y: { ticks: { callback: v => F.brlC(v) } }, x: { grid: { display: false } } } } }));
+  }
+};
+
+/* === Produtos === */
+VIEWS.produtos = { t: 'Produtos',
+  html() { K = ENG.calc(); const k = K; const ps = k.prods;
+    const tot = ps.reduce((a, p) => ({ val: a.val + p.val, kg: a.kg + p.kg }), { val: 0, kg: 0 });
+    return `<div class="row2">
+      <div class="card"><h3>${ic('cresc')}Matriz de crescimento<span class="dir">bolha = faturamento</span></h3><div class="chart-box" style="height:340px"><canvas id="mx"></canvas></div>
+        <p class="help">Acima da diagonal, o R$ cresce mais que o kg (preço ou mix). Abaixo, o volume cresce mais que a receita.</p></div>
+      <div class="card"><h3>${ic('pizza')}Participação no crescimento</h3><p class="help" style="margin-top:-4px">A empresa ${k.c.val >= k.p.val ? 'cresceu' : 'recuou'} <b>${F.brlC(k.c.val - k.p.val)}</b> contra ${ENG.f.ano - 1}. Quem puxou:</p>
+        <div class="bars">${[...ps].filter(p => p.contrib !== null).sort((a, b) => (b.val - b.valA) - (a.val - a.valA)).slice(0, 9).map(p => { const dv = p.val - p.valA; const mx = Math.max(...ps.map(x => Math.abs(x.val - x.valA))) || 1; return `<div class="bar"><span class="nm">${F.esc(p.k)}</span><span class="tr"><span class="fi" style="display:block;width:${Math.abs(dv) / mx * 100}%;background:${dv >= 0 ? 'var(--ok)' : 'var(--bad)'}"></span></span><span class="vl ${dv >= 0 ? 'up' : 'dn'}">${F.brlC(dv)} · ${F.pct(p.contrib, 0)}</span></div>`; }).join('')}</div></div></div>
+    <div class="card"><h3>${ic('caixa')}Kg e R$ acumulados por produto<span class="dir">concentração top 3: <b>${F.pct(k.conc3p, 0)}</b></span></h3>
+      ${UI.tabela('t-prod', [{ t: 'Produto' }, { t: 'R$ acumulado', n: 1 }, { t: 'Var. R$', n: 1 }, { t: 'Kg acumulado', n: 1 }, { t: 'Var. kg', n: 1 }, { t: 'R$/kg', n: 1 }, { t: '% fat.', n: 1 }, { t: '% vol.', n: 1 }, { t: 'Clientes', n: 1 }, { t: 'Vendedores', n: 1 }, { t: 'Movimento' }],
+        ps.map(p => ({ v: [p.k, p.val, p.gR ?? -99, p.kg, p.gK ?? -99, p.rkg, p.shV, p.shK, p.clis, p.vends, p.cls[0]], h: [F.esc(p.k), F.brl(p.val), varCell(p.gR), F.kgN(p.kg), varCell(p.gK), F.brl2(p.rkg), F.pct(p.shV), F.pct(p.shK), p.clis, p.vends, `<span class="pill ${p.cls[1]}">${p.cls[0]}</span>`], click: `VIEWS.produtos.abre('${F.esc(p.k).replace(/'/g, "\\'")}')` })),
+        { ordem: 1, foot: ['Total', F.brl(tot.val), varCell(k.gR), F.kgN(tot.kg), varCell(k.gK), F.brl2(k.rkg), '100%', '100%', '', '', ''] })}</div>`; },
+  pos() { this.matriz(document.getElementById('mx'), K, true); },
+  matriz(el, k, rot) {
+    const ps = k.prods.filter(p => p.gR !== null && p.gK !== null); if (!ps.length) return;
+    const mx = Math.max(...ps.map(p => p.val)); const lim = Math.min(150, Math.max(30, Math.ceil((Math.max(...ps.map(p => Math.max(Math.abs(p.gR), Math.abs(p.gK)))) * 100 + 5) / 10) * 10)) / 100;
+    const topLbl = new Set([...ps].sort((a, b) => b.val - a.val).slice(0, 4).map(p => p.k));
+    const cor = p => p.gR >= 0 && p.gK >= 0 ? 'rgba(90,30,36,.82)' : p.gR >= 0 ? 'rgba(201,146,46,.78)' : 'rgba(194,59,53,.7)';
+    const lbl = { id: 'lbl', afterDatasetsDraw(ch) { const ctx = ch.ctx; const meta = ch.getDatasetMeta(0); ctx.save(); ctx.font = `600 ${rot ? 11 : 9.5}px Manrope`; ctx.fillStyle = CH.css('--txt');
+      meta.data.forEach((pt, i) => { const p = ps[i]; if (!rot && !topLbl.has(p.k)) return; ctx.fillText(p.k.replace('Petit Gâteau', 'P.G.'), pt.x + pt.options.radius + 3, pt.y + 3); }); ctx.restore(); } };
+    const diag = { id: 'diag', beforeDatasetsDraw(ch) { const { ctx, scales: { x, y } } = ch; ctx.save(); ctx.strokeStyle = CH.css('--bege'); ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(x.getPixelForValue(-lim * 100), y.getPixelForValue(-lim * 100)); ctx.lineTo(x.getPixelForValue(lim * 100), y.getPixelForValue(lim * 100)); ctx.stroke();
+      ctx.setLineDash([]); ctx.strokeStyle = CH.css('--txt-3'); ctx.beginPath(); ctx.moveTo(x.getPixelForValue(0), y.top); ctx.lineTo(x.getPixelForValue(0), y.bottom); ctx.moveTo(x.left, y.getPixelForValue(0)); ctx.lineTo(x.right, y.getPixelForValue(0)); ctx.stroke(); ctx.restore(); } };
+    CH.novo(el, { type: 'bubble', plugins: [diag, lbl], data: { datasets: [{ data: ps.map(p => ({ x: p.gK * 100, y: p.gR * 100, r: 4 + Math.sqrt(p.val / mx) * (rot ? 20 : 13) })), backgroundColor: ps.map(cor), borderColor: '#fff', borderWidth: 1 }] },
+      options: { onClick: (e, it) => it[0] && VIEWS.produtos.abre(ps[it[0].index].k), plugins: { tooltip: { callbacks: { label: t => { const p = ps[t.dataIndex]; return [` ${p.k}`, ` R$: ${F.var(p.gR)} · kg: ${F.var(p.gK)}`, ` Faturamento: ${F.brlC(p.val)}`]; } } } },
+        scales: { x: { min: -lim * 100, max: lim * 100, title: { display: true, text: 'Crescimento em kg' }, ticks: { stepSize: lim * 50, callback: v => Math.round(v) + '%' }, grid: { color: CH.css('--linha') } }, y: { min: -lim * 100, max: lim * 100, title: { display: rot, text: 'Crescimento em R$' }, ticks: { stepSize: lim * 50, callback: v => Math.round(v) + '%' }, grid: { color: CH.css('--linha') } } } } });
+  },
+  abre(nome) {
+    const p = K.prods.find(x => x.k === nome) || { k: nome, val: 0, kg: 0, cls: ['—', 'p-neu'] };
+    const todas = DB.vendas.filter(v => v.prod === nome && ENG.passa(v, { prod: true }));
+    const mens = Array(12).fill(0), mensA = Array(12).fill(0), kgM = Array(12).fill(0), kgA = Array(12).fill(0);
+    todas.forEach(v => { if (v.y === ENG.f.ano) { mens[v.m - 1] += v.val; kgM[v.m - 1] += v.kg; } if (v.y === ENG.f.ano - 1) { mensA[v.m - 1] += v.val; kgA[v.m - 1] += v.kg; } });
+    const cur = todas.filter(v => v.y === ENG.f.ano && v.m <= ENG.f.mFim);
+    const topC = [...ENG.agrupa(cur, 'cli').values()].sort((a, b) => b.val - a.val).slice(0, 8);
+    const pv = [...ENG.agrupa(cur, 'vend').values()].sort((a, b) => b.val - a.val);
+    const ms = ENG.metaAcum(ENG.metasSerie({ prod: nome, cli: '' }));
+    UI.drawer(`<div class="hd"><div><div class="help">Produto</div><h2>${F.esc(nome)}</h2><span class="pill ${p.cls[1]}">${p.cls[0]}</span></div><button class="x" onclick="UI.fecha()" aria-label="Fechar">✕</button></div>
+      <div class="mk"><div class="card"><div class="l">R$ acumulado</div><div class="v">${F.brlC(p.val)}</div></div><div class="card"><div class="l">Var. R$</div><div class="v ${clsVar(p.gR)}">${F.var(p.gR)}</div></div><div class="card"><div class="l">Kg acumulado</div><div class="v">${F.kg(p.kg)}</div></div><div class="card"><div class="l">Var. kg</div><div class="v ${clsVar(p.gK)}">${F.var(p.gK)}</div></div>
+      <div class="card"><div class="l">R$/kg</div><div class="v">${F.brl2(p.rkg || 0)}</div></div><div class="card"><div class="l">Participação fat.</div><div class="v">${F.pct(p.shV)}</div></div><div class="card"><div class="l">Clientes compradores</div><div class="v">${p.clis || 0}</div></div><div class="card"><div class="l">Meta / Ating.</div><div class="v">${ms?.val ? F.pct(p.val / ms.val) : '—'}</div></div></div>
+      <div class="card"><h3>${ic('visao')}R$ e kg por mês</h3><div class="chart-box" style="height:220px"><canvas id="pm"></canvas></div></div>
+      <div class="row2" style="grid-template-columns:1fr 1fr"><div class="card"><h3>${ic('clientes')}Maiores compradores</h3><div class="bars">${topC.map(x => `<div class="bar"><span class="nm">${F.esc(x.k)}</span><span class="tr"><span class="fi" style="display:block;width:${x.val / (topC[0]?.val || 1) * 100}%"></span></span><span class="vl">${F.kg(x.kg)}</span></div>`).join('')}</div></div>
+      <div class="card"><h3>${ic('vend')}Por vendedor</h3><div class="bars">${pv.map(x => `<div class="bar"><span class="nm">${F.esc(x.k)}</span><span class="tr"><span class="fi" style="display:block;width:${x.val / (pv[0]?.val || 1) * 100}%"></span></span><span class="vl">${F.brlC(x.val)}</span></div>`).join('')}</div></div></div>`,
+      () => CH.novo(document.getElementById('pm'), { data: { labels: MESES, datasets: [{ type: 'bar', label: `R$ ${ENG.f.ano}`, data: mens, backgroundColor: CH.css('--vinho'), borderRadius: 4, yAxisID: 'y' }, { type: 'bar', label: `R$ ${ENG.f.ano - 1}`, data: mensA, backgroundColor: CH.css('--bege'), borderRadius: 4, yAxisID: 'y' }, { type: 'line', label: `Kg ${ENG.f.ano}`, data: kgM, borderColor: CH.css('--champ'), pointRadius: 2, tension: .3, yAxisID: 'y1' }] },
+        options: { plugins: { legend: { display: true, position: 'bottom' } }, scales: { y: { ticks: { callback: v => F.brlC(v) } }, y1: { position: 'right', grid: { display: false }, ticks: { callback: v => F.kg(v) } }, x: { grid: { display: false } } } } }));
+  }
+};
+
+/* === Cobertura === */
+VIEWS.cobertura = { t: 'Cobertura de Clientes', filtro: 'aguardando',
+  abre(st) { this.filtro = st; if (UI.view !== 'cobertura') UI.go('cobertura'); else UI.render(); },
+  html() { K = ENG.calc(); const c = K.cart;
+    const lista = c.lista.filter(x => this.filtro === 'todos' || x.st === this.filtro);
+    return `<div class="row2" style="grid-template-columns:minmax(0,1fr) minmax(0,2fr)">
+      <div class="card"><h3>${ic('pizza')}Situação da carteira em ${F.data(ENG.ref())}</h3><div class="donut-wrap" style="justify-content:center"><div class="donut" style="width:190px;height:190px"><canvas id="dn"></canvas><div class="c"><b>${F.pct(c.cobertura, 0)}</b><span>cobertura</span></div></div></div>
+        <p class="help">Cobertura = clientes que compraram no mês ÷ carteira sem os inativos (${c.total - c.cont.inativo}). “Em risco” usa a frequência de cada cliente: passou 1,5× do intervalo normal de recompra. Inativo: mais de 120 dias sem comprar.</p></div>
+      <div class="card"><h3>${ic('clientes')}Quem precisa de ação<span class="dir"><button class="btn sm" onclick="VIEWS.cobertura.exporta()">${ic('down')}Exportar lista</button></span></h3>
+        <div class="toolbar"><span class="seg">${[['aguardando', 'Ainda não compraram'], ['risco', 'Em risco'], ['inativo', 'Inativos'], ['comprou', 'Compraram'], ['todos', 'Todos']].map(([s, n]) => `<button class="${this.filtro === s ? 'on' : ''}" onclick="VIEWS.cobertura.filtro='${s}';UI.render()">${n} (${s === 'todos' ? c.total : c.cont[s]})</button>`).join('')}</span></div>
+        ${UI.tabela('t-cob', [{ t: 'Cliente' }, { t: 'Vendedor' }, { t: 'Última compra', n: 1 }, { t: 'Dias sem comprar', n: 1 }, { t: 'Compra a cada', n: 1 }, { t: 'Atraso', n: 1 }, { t: 'Média mensal', n: 1 }, { t: 'Situação' }],
+          lista.map(x => ({ v: [x.cli, x.vend, x.ultima || '', x.dias ?? 9999, x.freq ?? 999, x.atraso ?? -999, x.media, x.st], h: [F.esc(x.cli), F.esc(x.vend), F.data(x.ultima), x.dias ?? '—', x.freq ? Math.round(x.freq) + ' dias' : '—', x.atraso > 0 ? `<span class="dn">+${Math.round(x.atraso)} d</span>` : '—', F.brlC(x.media), `<span class="pill ${ST[x.st][1]}">${ST[x.st][0]}</span>`], click: `VIEWS.clientes.abre('${x.cod}')` })), { ordem: 6 })}</div></div>`; },
+  pos() { const cc = K.cart.cont; CH.novo(document.getElementById('dn'), { type: 'doughnut', data: { labels: Object.values(ST).map(s => s[0]), datasets: [{ data: [cc.comprou, cc.aguardando, cc.risco, cc.inativo], backgroundColor: Object.values(ST).map(s => s[2]), borderWidth: 2, borderColor: CH.css('--card') }] }, options: { cutout: '66%', onClick: (e, el) => el[0] && this.abre(Object.keys(ST)[el[0].index]) } }); },
+  exporta() { const l = K.cart.lista.filter(x => this.filtro === 'todos' || x.st === this.filtro); UI.csv(`cobertura_${this.filtro}.csv`, ['Cliente', 'Vendedor', 'Última compra', 'Dias sem comprar', 'Frequência (dias)', 'Média mensal R$', 'Situação'], l.map(x => [x.cli, x.vend, F.data(x.ultima), x.dias ?? '', x.freq ? Math.round(x.freq) : '', Math.round(x.media), ST[x.st][0]])); }
+};
+
+/* === Metas === */
+VIEWS.metas = { t: 'Planejamento / Metas', s: 'Objetivos mensais em R$ e kg', semFiltro: true, tipo: 'EMPRESA', chave: 'EMPRESA',
+  html() { const ano = ENG.f.ano; const tipos = { EMPRESA: 'Empresa', VENDEDOR: 'Vendedor', CLIENTE: 'Cliente', PRODUTO: 'Produto' };
+    const lista = { EMPRESA: ['EMPRESA'], VENDEDOR: DB.listaVend, CLIENTE: DB.listaCli, PRODUTO: DB.listaProd }[this.tipo];
+    if (!lista.includes(this.chave)) this.chave = lista[0] || '';
+    const cur = []; for (let m = 1; m <= 12; m++) { const r = DB.metas.filter(x => x.ano === ano && x.mes === m && x.tipo === this.tipo && x.chave === this.chave); cur.push({ val: r.reduce((a, x) => a + x.val, 0), kg: r.reduce((a, x) => a + x.kg, 0) }); }
+    const campo = { VENDEDOR: 'vend', CLIENTE: 'cli', PRODUTO: 'prod' }[this.tipo];
+    const base = Array(12).fill(0).map(() => ({ val: 0, kg: 0 })); DB.vendas.forEach(v => { if (v.y === ano - 1 && (!campo || v[campo] === this.chave)) { base[v.m - 1].val += v.val; base[v.m - 1].kg += v.kg; } });
+    this._base = base;
+    const totM = cur.reduce((a, x) => a + x.val, 0), totK = cur.reduce((a, x) => a + x.kg, 0), totB = base.reduce((a, x) => a + x.val, 0);
+    const resumo = ['VENDEDOR', 'PRODUTO'].map(t => { const g = {}; DB.metas.filter(m => m.ano === ano && m.tipo === t).forEach(m => g[m.chave] = (g[m.chave] || 0) + m.val); return [t, g]; });
+    return `<div class="card"><h3>${ic('meta')}Cadastro de metas ${ano}</h3>
+      <div class="form" style="margin-bottom:14px">
+        <div class="f"><label for="m-ano">Ano</label><select id="m-ano">${[ano + 1, ano, ano - 1].map(a => `<option ${a === ano ? 'selected' : ''}>${a}</option>`).join('')}</select></div>
+        <div class="f"><label for="m-tipo">Nível</label><select id="m-tipo">${Object.entries(tipos).map(([t, n]) => `<option value="${t}" ${t === this.tipo ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
+        ${this.tipo !== 'EMPRESA' ? `<div class="f"><label for="m-chave">${tipos[this.tipo]}</label><select id="m-chave">${lista.map(x => `<option ${x === this.chave ? 'selected' : ''}>${F.esc(x)}</option>`).join('')}</select></div>` : ''}
+        <div class="f"><label for="m-pct">Crescimento sobre ${ano - 1}</label><input id="m-pct" type="number" step="0.5" value="15"></div>
+        <div class="f" style="justify-content:flex-end"><button class="btn" onclick="VIEWS.metas.sugerir()">Sugerir pela sazonalidade de ${ano - 1}</button></div>
+      </div>
+      <div class="metas-grid">${MESES.map((m, i) => `<div class="card"><b>${m}</b><div class="help">${ano - 1}: ${F.brlC(base[i].val)}</div><input id="mv-${i}" inputmode="decimal" placeholder="Meta R$" value="${cur[i].val ? nf(2).format(cur[i].val) : ''}" aria-label="Meta R$ ${m}"><input id="mk-${i}" inputmode="decimal" placeholder="Meta kg" value="${cur[i].kg ? nf(0).format(cur[i].kg) : ''}" aria-label="Meta kg ${m}"></div>`).join('')}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin-top:14px"><button class="btn pri" onclick="VIEWS.metas.salvar()">${ic('check')}Salvar metas</button>
+        <span class="help">Total atual: <b>${F.brl(totM)}</b> · ${F.kgN(totK)} ${totB ? `(${F.var(totM / totB - 1)} sobre ${ano - 1})` : ''}</span></div>
+      <p class="help">Quando não houver meta de Empresa, o sistema soma as metas dos vendedores. A meta do mês corrente entra proporcional aos dias corridos.</p></div>
+      <div class="row2" style="grid-template-columns:1fr 1fr">${resumo.map(([t, g]) => `<div class="card"><h3>${ic(t === 'VENDEDOR' ? 'vend' : 'prod')}Metas anuais por ${t.toLowerCase()}</h3><div class="bars">${Object.entries(g).sort((a, b) => b[1] - a[1]).slice(0, 12).map(([k, v]) => `<div class="bar click" onclick="VIEWS.metas.tipo='${t}';VIEWS.metas.chave='${F.esc(k).replace(/'/g, "\\'")}';UI.render()"><span class="nm">${F.esc(k)}</span><span class="tr"><span class="fi" style="display:block;width:${v / Math.max(...Object.values(g)) * 100}%"></span></span><span class="vl">${F.brlC(v)}</span></div>`).join('') || '<p class="help">Nenhuma meta cadastrada.</p>'}</div></div>`).join('')}</div>`; },
+  pos() {
+    document.getElementById('m-tipo').onchange = e => { this.tipo = e.target.value; this.chave = this.tipo === 'EMPRESA' ? 'EMPRESA' : ''; UI.render(); };
+    const c = document.getElementById('m-chave'); if (c) c.onchange = e => { this.chave = e.target.value; UI.render(); };
+    document.getElementById('m-ano').onchange = e => { ENG.f.ano = +e.target.value; ENG.f.mFim = Math.min(ENG.f.mFim, 12); UI.render(); };
+  },
+  sugerir() { const p = (+document.getElementById('m-pct').value || 0) / 100; this._base.forEach((b, i) => { document.getElementById('mv-' + i).value = b.val ? nf(2).format(Math.round(b.val * (1 + p) / 100) * 100) : ''; document.getElementById('mk-' + i).value = b.kg ? nf(0).format(Math.round(b.kg * (1 + p * .6))) : ''; }); UI.toast('Metas sugeridas. Revise e clique em Salvar.'); },
+  async salvar() {
+    const ano = +document.getElementById('m-ano').value; const meses = MESES.map((_, i) => ({ mes: i + 1, valor: DB.num(document.getElementById('mv-' + i).value), kg: DB.num(document.getElementById('mk-' + i).value) }));
+    try { await API.post('salvarMetas', { ano, tipo: this.tipo, chave: this.chave, meses });
+      DB.metas = DB.metas.filter(m => !(m.ano === ano && m.tipo === this.tipo && m.chave === this.chave)).concat(meses.filter(m => m.valor || m.kg).map(m => ({ ano, mes: m.mes, tipo: this.tipo, chave: this.chave, val: m.valor, kg: m.kg })));
+      UI.toast(CFG.demo ? 'Metas aplicadas (modo demonstração, não gravadas).' : 'Metas salvas na base de dados.'); UI.render(); } catch (e) { UI.toast('Não foi possível salvar: ' + e.message, 5000); }
+  }
+};
+
+/* === Apresentações === */
+VIEWS.apresentacoes = { t: 'Apresentações', s: 'Material executivo gerado a partir do painel',
+  html() { return `<div class="row2" style="grid-template-columns:minmax(0,1fr) minmax(0,1fr)"><div class="card"><h3>${ic('apres')}Gerar apresentação</h3>
+    <p class="help">A apresentação usa exatamente os filtros do topo da tela (período, vendedor, cliente, produto, canal). Para uma reunião de um vendedor, selecione o vendedor antes.</p>
+    <div class="form" style="margin:12px 0"><div class="f"><label for="ap-tipo">Tipo de reunião</label><select id="ap-tipo"><option>Reunião mensal de resultados</option><option>Revisão trimestral</option><option>Reunião com vendedor</option><option>Análise de produtos</option></select></div>
+    <div class="f"><label for="ap-titulo">Título da capa</label><input id="ap-titulo" value="Resultado Comercial"></div></div>
+    <div class="chips" style="margin-bottom:14px">${['Resumo executivo', 'Objetivo x realizado', 'Crescimento', 'Clientes', 'Produtos', 'Vendedores', 'Pontos de atenção', 'Próximas ações'].map((s, i) => `<span class="chip">${i + 1}. ${s}</span>`).join('')}</div>
+    <button class="btn pri" onclick="DECK.abrir()">${ic('apres')}Montar apresentação</button></div>
+    <div class="card"><h3>${ic('arq')}Como salvar em PDF</h3><ol class="help" style="padding-left:18px;line-height:1.7"><li>Clique em <b>Montar apresentação</b> e revise os slides.</li><li>Clique em <b>Gerar PDF</b> e escolha “Salvar como PDF” (paisagem, sem margens).</li><li>Na <a href="#arquivos">Central de Arquivos</a>, use <b>Enviar PDF</b> para guardar no Drive e deixar disponível para consulta.</li></ol></div></div>`; }
+};
+
+/* === Central de Arquivos === */
+VIEWS.arquivos = { t: 'Central de Arquivos', s: 'Relatórios, apresentações e documentos', semFiltro: true, tipo: '',
+  html() { const tipos = [...new Set(DB.arquivos.map(a => a.TIPO))]; const arr = DB.arquivos.filter(a => !this.tipo || a.TIPO === this.tipo).sort((a, b) => String(b.DATA_GERACAO).localeCompare(String(a.DATA_GERACAO)));
+    return `<div class="card"><h3>${ic('arq')}Arquivos<span class="dir"><span class="seg"><button class="${!this.tipo ? 'on' : ''}" onclick="VIEWS.arquivos.tipo='';UI.render()">Todos</button>${tipos.map(t => `<button class="${this.tipo === t ? 'on' : ''}" onclick="VIEWS.arquivos.tipo='${F.esc(t)}';UI.render()">${F.esc(t)}</button>`).join('')}</span></span></h3>
+      <div class="files">${arr.map(a => `<div class="card"><a class="file" ${a.LINK_DRIVE ? `href="${F.esc(a.LINK_DRIVE)}" target="_blank" rel="noopener"` : ''}><span class="ic">PDF</span><span><span class="nm">${F.esc(a.NOME)}</span><br><span class="mt">${F.esc(a.TIPO)} · ${F.esc(a.PERIODO)} · ${F.data(String(a.DATA_GERACAO).slice(0, 10))}</span>${!a.LINK_DRIVE ? '<br><span class="mt">sem link (exemplo)</span>' : ''}</span></a>
+        <div style="display:flex;justify-content:flex-end;margin-top:8px"><button class="btn sm" onclick="VIEWS.arquivos.excluir('${F.esc(a.ID)}')">Remover da central</button></div></div>`).join('') || '<p class="help">Nenhum arquivo ainda.</p>'}</div></div>
+    <div class="row2" style="grid-template-columns:1fr 1fr">
+      <div class="card"><h3>${ic('up')}Enviar PDF para o Drive</h3><form id="fa-up" class="form"><div class="f"><label for="up-tipo">Tipo</label><select id="up-tipo"><option>Relatório mensal</option><option>Apresentação comercial</option><option>Planejamento</option><option>Tabela de preços</option><option>Documento</option></select></div><div class="f"><label for="up-per">Período</label><input id="up-per" placeholder="Ex.: Set/2026"></div><div class="f" style="grid-column:1/-1"><label for="up-arq">Arquivo PDF</label><input id="up-arq" type="file" accept="application/pdf"></div><div><button class="btn pri" type="submit">Enviar</button></div></form></div>
+      <div class="card"><h3>${ic('arq')}Registrar link existente</h3><form id="fa-link" class="form"><div class="f"><label for="lk-nome">Nome</label><input id="lk-nome" required></div><div class="f"><label for="lk-tipo">Tipo</label><select id="lk-tipo"><option>Relatório mensal</option><option>Apresentação comercial</option><option>Planejamento</option><option>Tabela de preços</option><option>Documento</option></select></div><div class="f"><label for="lk-per">Período</label><input id="lk-per"></div><div class="f" style="grid-column:1/-1"><label for="lk-url">Link do Google Drive</label><input id="lk-url" type="url" required placeholder="https://drive.google.com/…"></div><div><button class="btn pri" type="submit">Registrar</button></div></form></div></div>`; },
+  pos() {
+    document.getElementById('fa-link').onsubmit = async e => { e.preventDefault(); const p = { nome: lkv('lk-nome'), tipo: lkv('lk-tipo'), periodo: lkv('lk-per'), link: lkv('lk-url') };
+      try { const r = await API.post('salvarArquivo', p); DB.arquivos.push({ ID: r?.id || 'ARQ-' + Date.now(), TIPO: p.tipo, NOME: p.nome, PERIODO: p.periodo, DATA_GERACAO: ENG.hojeISO(), LINK_DRIVE: p.link }); UI.toast('Arquivo registrado.'); UI.render(); } catch (x) { UI.toast('Erro: ' + x.message, 5000); } };
+    document.getElementById('fa-up').onsubmit = async e => { e.preventDefault(); const f = document.getElementById('up-arq').files[0]; if (!f) return UI.toast('Selecione um PDF.');
+      if (CFG.demo) return UI.toast('Conecte a base de dados em Configurações para enviar arquivos ao Drive.', 4500);
+      if (f.size > 20 * 1024 * 1024) return UI.toast('PDF acima de 20 MB. Envie direto no Drive e registre o link.', 5000);
+      UI.toast('Enviando…'); const b64 = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(String(fr.result).split(',')[1]); fr.readAsDataURL(f); });
+      try { const r = await API.post('enviarPdf', { base64: b64, nomeArquivo: f.name, nome: f.name.replace(/\.pdf$/i, ''), tipo: lkv('up-tipo'), periodo: lkv('up-per') }); UI.toast('PDF salvo no Drive.'); await APP.recarregar(); } catch (x) { UI.toast('Erro: ' + x.message, 5000); } };
+  },
+  async excluir(id) { try { await API.post('excluirArquivo', { id }); DB.arquivos = DB.arquivos.filter(a => a.ID !== id); UI.toast('Removido da central (o arquivo continua no Drive).'); UI.render(); } catch (x) { UI.toast('Erro: ' + x.message, 5000); } }
+};
+const lkv = id => document.getElementById(id).value.trim();
+
+/* === Lançamentos / Importações === */
+const MAPA_COLS = { data: ['data', 'dt', 'emissao', 'data emissao', 'data_emissao', 'dt_emissao'], pedido: ['pedido', 'nf', 'nota', 'documento', 'num_pedido', 'numero'], cod_cliente: ['cod_cliente', 'codigo cliente', 'cod cliente', 'cliente_cod', 'cnpj'], cliente: ['cliente', 'razao social', 'nome fantasia', 'nome_cliente'], vendedor: ['vendedor', 'representante', 'rca'], cod_produto: ['cod_produto', 'codigo produto', 'cod produto', 'sku', 'codigo'], produto: ['produto', 'descricao', 'descrição', 'item'], canal: ['canal', 'segmento'], qtd: ['qtd', 'quantidade', 'qtde', 'caixas'], kg: ['kg', 'peso', 'peso_kg', 'quilos', 'kilos'], valor: ['valor', 'valor total', 'total', 'faturamento', 'vl_total', 'valor_total'] };
+VIEWS.lancamentos = { t: 'Lançamentos / Importações', s: 'Alimentação da base de dados', semFiltro: true, aba: 'imp', prev: null,
+  html() { const a = this.aba; return `<div class="tabs">${[['imp', 'Importar arquivo'], ['venda', 'Nova venda'], ['cad', 'Cadastros']].map(([k, n]) => `<button class="${a === k ? 'on' : ''}" onclick="VIEWS.lancamentos.aba='${k}';UI.render()">${n}</button>`).join('')}</div>
+    ${a === 'imp' ? this.imp() : a === 'venda' ? this.venda() : this.cad()}`; },
+  imp() { const p = this.prev; return `<div class="card"><h3>${ic('up')}Importar vendas (CSV ou Excel)</h3>
+    <p class="help">Uma linha por item vendido. Colunas reconhecidas: DATA, PEDIDO, COD_CLIENTE, CLIENTE, VENDEDOR, COD_PRODUTO, PRODUTO, CANAL, QTD, KG, VALOR. Nomes parecidos (ex.: “Razão social”, “Quantidade”, “Valor total”) também são aceitos. Pedidos já importados não são duplicados.</p>
+    <label class="drop" id="drop" for="imp-arq" style="display:block;margin-top:12px;cursor:pointer"><b>Arraste o arquivo aqui</b> ou clique para escolher<br><span class="help">.csv, .xlsx ou .xls</span><input id="imp-arq" type="file" accept=".csv,.xlsx,.xls,.txt" hidden></label>
+    ${p ? `<div class="mk" style="margin-top:14px"><div class="card"><div class="l">Linhas encontradas</div><div class="v">${F.int(p.total)}</div></div><div class="card"><div class="l">Válidas</div><div class="v up">${F.int(p.ok.length)}</div></div><div class="card"><div class="l">Com erro</div><div class="v ${p.err.length ? 'dn' : ''}">${F.int(p.err.length)}</div></div><div class="card"><div class="l">Faturamento</div><div class="v">${F.brlC(p.ok.reduce((a, x) => a + x.valor, 0))}</div></div><div class="card"><div class="l">Kg</div><div class="v">${F.kg(p.ok.reduce((a, x) => a + x.kg, 0))}</div></div><div class="card"><div class="l">Período</div><div class="v" style="font-size:14px">${F.data(p.min)} a ${F.data(p.max)}</div></div></div>
+      ${p.faltam.length ? `<div class="alerta">${ic('alerta')}<div>Colunas não encontradas: <b>${p.faltam.join(', ')}</b>.</div></div>` : ''}
+      ${p.err.length ? `<details style="margin-top:10px"><summary class="help">Ver linhas com erro</summary><div class="tbl-wrap" style="max-height:220px;margin-top:8px"><table class="t"><thead><tr><th>Linha</th><th>Problema</th></tr></thead><tbody>${p.err.slice(0, 200).map(e => `<tr><td>${e.l}</td><td>${F.esc(e.m)}</td></tr>`).join('')}</tbody></table></div></details>` : ''}
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:14px"><div class="f"><label for="imp-modo">Modo</label><select id="imp-modo"><option value="acrescentar">Acrescentar à base</option><option value="substituir">Substituir toda a base de vendas</option></select></div>
+      <button class="btn pri" style="align-self:flex-end" onclick="VIEWS.lancamentos.enviar()" ${p.ok.length ? '' : 'disabled'}>${ic('up')}Importar ${F.int(p.ok.length)} linhas</button></div>` : ''}</div>`; },
+  venda() { return `<div class="card"><h3>${ic('moedas')}Lançar venda</h3><form id="fv" class="form">
+    <div class="f"><label for="v-data">Data</label><input id="v-data" type="date" value="${ENG.hojeISO()}" required></div><div class="f"><label for="v-ped">Pedido / NF</label><input id="v-ped" required></div>
+    <div class="f"><label for="v-cli">Cliente</label><input id="v-cli" list="dl-cli" required></div><div class="f"><label for="v-vend">Vendedor</label><input id="v-vend" list="dl-vend" required></div>
+    <div class="f"><label for="v-prod">Produto</label><input id="v-prod" list="dl-prod" required></div><div class="f"><label for="v-canal">Canal</label><input id="v-canal" list="dl-canal"></div>
+    <div class="f"><label for="v-qtd">Quantidade (caixas)</label><input id="v-qtd" inputmode="decimal"></div><div class="f"><label for="v-kg">Kg</label><input id="v-kg" inputmode="decimal" required></div><div class="f"><label for="v-val">Valor total R$</label><input id="v-val" inputmode="decimal" required></div>
+    <div style="grid-column:1/-1"><button class="btn pri" type="submit">${ic('check')}Lançar venda</button></div></form>
+    <datalist id="dl-cli">${DB.listaCli.map(x => `<option value="${F.esc(x)}">`).join('')}</datalist><datalist id="dl-vend">${DB.listaVend.map(x => `<option value="${F.esc(x)}">`).join('')}</datalist><datalist id="dl-prod">${DB.listaProd.map(x => `<option value="${F.esc(x)}">`).join('')}</datalist><datalist id="dl-canal">${DB.listaCanal.map(x => `<option value="${F.esc(x)}">`).join('')}</datalist></div>`; },
+  cad() { const t = this.cadTipo || 'clientes'; const campos = { clientes: [['COD_CLIENTE', 'Código'], ['CLIENTE', 'Nome'], ['VENDEDOR', 'Vendedor'], ['CANAL', 'Canal'], ['CIDADE', 'Cidade'], ['UF', 'UF'], ['STATUS', 'Status']], produtos: [['COD_PRODUTO', 'Código'], ['PRODUTO', 'Produto'], ['CATEGORIA', 'Categoria'], ['LINHA', 'Linha'], ['PESO_KG', 'Peso da caixa (kg)'], ['STATUS', 'Status']], vendedores: [['COD_VENDEDOR', 'Código'], ['VENDEDOR', 'Nome'], ['STATUS', 'Status']] }[t];
+    return `<div class="card"><h3>${ic('clientes')}Cadastros<span class="dir"><span class="seg">${[['clientes', 'Cliente'], ['produtos', 'Produto'], ['vendedores', 'Vendedor']].map(([k, n]) => `<button class="${t === k ? 'on' : ''}" onclick="VIEWS.lancamentos.cadTipo='${k}';UI.render()">${n}</button>`).join('')}</span></span></h3>
+    <form id="fc" class="form">${campos.map(([c, n]) => `<div class="f"><label for="c-${c}">${n}</label>${c === 'STATUS' ? `<select id="c-${c}"><option>ATIVO</option><option>INATIVO</option></select>` : `<input id="c-${c}" ${c.startsWith('COD') ? 'required' : ''}>`}</div>`).join('')}<div style="grid-column:1/-1"><button class="btn pri" type="submit">${ic('check')}Salvar cadastro</button> <span class="help">Se o código já existir, o cadastro é atualizado.</span></div></form></div>`; },
+  pos() {
+    const inp = document.getElementById('imp-arq'); if (inp) { inp.onchange = () => inp.files[0] && this.ler(inp.files[0]); const d = document.getElementById('drop');
+      d.ondragover = e => { e.preventDefault(); d.classList.add('over'); }; d.ondragleave = () => d.classList.remove('over'); d.ondrop = e => { e.preventDefault(); d.classList.remove('over'); e.dataTransfer.files[0] && this.ler(e.dataTransfer.files[0]); }; }
+    const fv = document.getElementById('fv'); if (fv) fv.onsubmit = async e => { e.preventDefault(); const x = { data: lkv('v-data'), pedido: lkv('v-ped'), cliente: lkv('v-cli'), vendedor: lkv('v-vend'), produto: lkv('v-prod'), canal: lkv('v-canal'), qtd: DB.num(lkv('v-qtd')), kg: DB.num(lkv('v-kg')), valor: DB.num(lkv('v-val')) };
+      const c = DB.clientes.find(c => c.CLIENTE === x.cliente); x.cod_cliente = c ? c.COD_CLIENTE : x.cliente; const p = DB.produtos.find(p => p.PRODUTO === x.produto); x.cod_produto = p ? p.COD_PRODUTO : x.produto;
+      try { await API.post('lancarVenda', x); this.aplicaLocal([x]); UI.toast(CFG.demo ? 'Venda aplicada (modo demonstração).' : 'Venda salva na base de dados.'); fv.reset(); } catch (er) { UI.toast('Erro: ' + er.message, 5000); } };
+    const fc = document.getElementById('fc'); if (fc) fc.onsubmit = async e => { e.preventDefault(); const reg = {}; fc.querySelectorAll('[id^="c-"]').forEach(i => reg[i.id.slice(2)] = i.value.trim()); const t = this.cadTipo || 'clientes';
+      try { await API.post('salvarCadastro', { tipo: t, registro: reg }); const arr = DB[t]; const k = Object.keys(reg)[0]; const i = arr.findIndex(r => String(r[k]) === reg[k]); if (i >= 0) arr[i] = reg; else arr.push(reg); DB.indices(); UI.toast('Cadastro salvo.'); fc.reset(); } catch (er) { UI.toast('Erro: ' + er.message, 5000); } };
+  },
+  async ler(file) {
+    let linhas;
+    if (/\.xlsx?$/i.test(file.name)) {
+      if (!window.XLSX) await new Promise((ok, no) => { const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'; s.onload = ok; s.onerror = () => no(new Error('Não foi possível carregar o leitor de Excel')); document.head.appendChild(s); });
+      const wb = XLSX.read(await file.arrayBuffer(), { type: 'array', cellDates: true }); linhas = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: true, defval: '' });
+    } else { const txt = await file.text(); const sep = (txt.split('\n')[0].match(/;/g) || []).length >= (txt.split('\n')[0].match(/,/g) || []).length ? ';' : ','; linhas = this.csvParse(txt, sep); }
+    const norm = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim().replace(/\s+/g, ' ');
+    const cab = (linhas[0] || []).map(norm); const idx = {};
+    Object.entries(MAPA_COLS).forEach(([k, al]) => { idx[k] = cab.findIndex(c => c === k || al.map(norm).includes(c) || c.replace(/_/g, ' ') === k.replace(/_/g, ' ')); });
+    const obrig = ['data', 'cliente', 'produto', 'valor']; const faltam = Object.keys(MAPA_COLS).filter(k => idx[k] < 0 && (obrig.includes(k) || ['kg', 'vendedor'].includes(k))).map(k => k.toUpperCase());
+    const ok = [], err = []; let min = '9999', max = '0000';
+    const dt = v => { if (v instanceof Date) return v.toISOString().slice(0, 10); if (typeof v === 'number' && v > 20000 && v < 80000) return new Date(Math.round((v - 25569) * 864e5)).toISOString().slice(0, 10); const s = String(v).trim(); let m; if ((m = s.match(/^(\d{4})-(\d{2})-(\d{2})/))) return m[0]; if ((m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/))) return `${m[3].length === 2 ? '20' + m[3] : m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`; return null; };
+    for (let i = 1; i < linhas.length; i++) { const l = linhas[i]; if (!l || l.every(c => String(c).trim() === '')) continue; const g = k => idx[k] >= 0 ? l[idx[k]] : '';
+      const x = { data: dt(g('data')), pedido: String(g('pedido')).trim(), cod_cliente: String(g('cod_cliente') || g('cliente')).trim(), cliente: String(g('cliente')).trim(), vendedor: String(g('vendedor')).trim(), cod_produto: String(g('cod_produto') || g('produto')).trim(), produto: String(g('produto')).trim(), canal: String(g('canal')).trim(), qtd: DB.num(g('qtd')), kg: DB.num(g('kg')), valor: DB.num(g('valor')) };
+      const pr = []; if (!x.data) pr.push('data inválida'); if (!x.cliente) pr.push('sem cliente'); if (!x.produto) pr.push('sem produto'); if (!x.valor) pr.push('valor zerado');
+      if (pr.length) err.push({ l: i + 1, m: pr.join(', ') }); else { ok.push(x); if (x.data < min) min = x.data; if (x.data > max) max = x.data; } }
+    this.prev = { total: ok.length + err.length, ok, err, faltam, min, max }; UI.render();
+  },
+  csvParse(t, sep) { const out = []; let row = [], cur = '', q = false; for (let i = 0; i < t.length; i++) { const c = t[i]; if (q) { if (c === '"' && t[i + 1] === '"') { cur += '"'; i++; } else if (c === '"') q = false; else cur += c; } else if (c === '"') q = true; else if (c === sep) { row.push(cur); cur = ''; } else if (c === '\n' || c === '\r') { if (c === '\r' && t[i + 1] === '\n') i++; row.push(cur); out.push(row); row = []; cur = ''; } else cur += c; } if (cur || row.length) { row.push(cur); out.push(row); } return out; },
+  async enviar() { const p = this.prev; const modo = document.getElementById('imp-modo').value;
+    try { let grav = 0, dup = 0; for (let i = 0; i < p.ok.length; i += 2000) { const r = await API.post('importarVendas', { linhas: p.ok.slice(i, i + 2000), modo: i === 0 ? modo : 'acrescentar' }); grav += r?.gravadas ?? p.ok.slice(i, i + 2000).length; dup += r?.duplicadas ?? 0; UI.toast(`Importando… ${Math.min(i + 2000, p.ok.length)} de ${p.ok.length}`); }
+      if (CFG.demo) { if (modo === 'substituir') DB.vendas = []; this.aplicaLocal(p.ok); UI.toast(`${F.int(grav)} linhas aplicadas (modo demonstração).`, 4000); }
+      else { UI.toast(`${F.int(grav)} linhas importadas, ${F.int(dup)} duplicadas ignoradas.`, 4500); await APP.recarregar(); }
+      this.prev = null; UI.render(); } catch (e) { UI.toast('Erro na importação: ' + e.message, 6000); } },
+  aplicaLocal(arr) { arr.forEach(x => DB.vendas.push({ d: x.data, y: +x.data.slice(0, 4), m: +x.data.slice(5, 7), ped: x.pedido, cc: String(x.cod_cliente || x.cliente), cli: x.cliente, vend: x.vendedor, cp: String(x.cod_produto || x.produto), prod: x.produto, canal: x.canal, qtd: x.qtd, kg: x.kg, val: x.valor }));
+    const cad = new Map(DB.clientes.map(c => [String(c.COD_CLIENTE), c])); arr.forEach(x => { const k = String(x.cod_cliente || x.cliente); if (!cad.has(k)) { const c = { COD_CLIENTE: k, CLIENTE: x.cliente, VENDEDOR: x.vendedor, CANAL: x.canal, STATUS: 'ATIVO' }; cad.set(k, c); DB.clientes.push(c); } }); DB.indices(); UI.filtros(); }
+};
+
+/* === Configurações === */
+VIEWS.config = { t: 'Configurações', s: 'Conexão, versão e aparência', semFiltro: true,
+  html() { const c = CFG.get(); return `<div class="row2" style="grid-template-columns:1fr 1fr">
+    <div class="card"><h3>${ic('cfg')}Conexão com a base de dados</h3><form id="fcfg" class="form" style="grid-template-columns:1fr">
+      <div class="f"><label for="cfg-api">URL da Web App (Apps Script /exec)</label><input id="cfg-api" value="${F.esc(c.api || '')}" placeholder="https://script.google.com/macros/s/…/exec"></div>
+      <div class="f"><label for="cfg-k">Chave de acesso (aba CONFIG)</label><input id="cfg-k" value="${F.esc(c.chave || '')}" autocomplete="off"></div>
+      <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="cfg-demo" ${c.demo ? 'checked' : ''}> Mostrar dados de exemplo mesmo conectado (para apresentação)</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn pri" type="submit">Salvar e recarregar</button><button class="btn" type="button" onclick="VIEWS.config.testar()">Testar conexão</button></div></form>
+      <p class="help">Situação: <b>${CFG.demo ? 'dados de exemplo' : 'conectado à base de dados'}</b>. ${DB.atualizadoEm ? 'Última leitura: ' + new Date(DB.atualizadoEm).toLocaleString('pt-BR') : ''}</p>
+      <p class="help">Dica: abra o sistema uma vez pelo link <code>…/index.html?api=URL&amp;k=CHAVE</code> e ele guarda a conexão neste navegador.</p></div>
+    <div class="card"><h3>${ic('check')}Versão</h3><p>Raffinée Analytics <b>v${APP_VERSION}</b></p>
+      <div class="tbl-wrap"><table class="t" style="min-width:0"><thead><tr><th>Versão</th><th>Data</th><th>O que mudou</th></tr></thead><tbody>${HISTORICO.map(h => `<tr><td><b>v${h.v}</b></td><td>${h.d}</td><td style="white-space:normal">${F.esc(h.t)}</td></tr>`).join('')}</tbody></table></div>
+      <h3 style="margin-top:18px">${ic('visao')}Aparência</h3><div class="seg">${[['light', 'Claro'], ['dark', 'Escuro']].map(([t, n]) => `<button class="${document.documentElement.dataset.theme === t ? 'on' : ''}" onclick="APP.tema('${t}')">${n}</button>`).join('')}</div></div></div>`; },
+  pos() { document.getElementById('fcfg').onsubmit = e => { e.preventDefault(); CFG.set({ api: lkv('cfg-api'), chave: lkv('cfg-k'), demo: document.getElementById('cfg-demo').checked }); location.reload(); }; },
+  async testar() { try { const r = await fetch(lkv('cfg-api') + '?action=dados&k=' + encodeURIComponent(lkv('cfg-k'))); const j = await r.json(); UI.toast(j.ok ? `Conectado. ${F.int(j.dados.vendas.rows.length)} linhas de venda na base.` : 'Recusado: ' + j.erro, 5000); } catch (e) { UI.toast('Sem resposta da URL informada.', 5000); } }
+};
+
+/* ---------------- DECK (apresentação) ---------------- */
+const DECK = {
+  abrir() {
+    const k = ENG.calc(); K = k; const f = ENG.f; const tit = document.getElementById('ap-titulo')?.value || 'Resultado Comercial';
+    const per = `Jan a ${MESES[f.mFim - 1]} / ${f.ano}`; const esc = [f.vend && 'Vendedor ' + f.vend, f.cli, f.prod, f.canal].filter(Boolean).join(' · ') || 'Empresa';
+    const logoV = 'assets/raffinee-logo-vinho.png', logoB = 'assets/raffinee-logo.png';
+    const cab = (eb, h) => `<div class="sh"><div><div class="eyebrow">${eb}</div><h2>${h}</h2></div><img class="lg" src="${logoV}" alt="Raffinée"></div>`;
+    const rod = n => `<div class="sf"><span>Raffinée Analytics · ${per} · ${F.esc(esc)}</span><span>${n} / 8</span></div>`;
+    const kb = (l, v, d, c) => `<div><div class="l">${l}</div><div class="v">${v}</div><div class="d ${c || ''}">${d}</div></div>`;
+    const at = ENG.atencao(k); const cc = k.cart.cont;
+    const pend = k.cart.lista.filter(c => c.st === 'risco' || c.st === 'aguardando').sort((a, b) => b.media - a.media).slice(0, 5);
+    const acoes = [];
+    if (k.acel > 0) acoes.push(`Acelerar o ritmo em <b>${F.pct(k.acel, 0)}</b>: vender <b>${F.brlC(k.ritmo)}/mês</b> até dezembro.`);
+    if (pend.length) acoes.push(`Contatar os clientes em atraso de maior peso: <b>${pend.slice(0, 3).map(c => F.esc(c.cli)).join(', ')}</b>.`);
+    const vb = k.vends.filter(v => v.ating !== null && v.ating < .9); if (vb.length) acoes.push(`Plano de recuperação com <b>${vb.map(v => F.esc(v.k)).join(', ')}</b> (abaixo de 90% da meta).`);
+    const pq = k.prods.filter(p => p.gR !== null && p.gR < 0).slice(0, 2); if (pq.length) acoes.push(`Revisar estratégia de <b>${pq.map(p => F.esc(p.k)).join(' e ')}</b>, em queda contra ${f.ano - 1}.`);
+    const pc = k.prods.filter(p => p.cls[0] === 'Crescimento saudável').slice(0, 2); if (pc.length) acoes.push(`Levar <b>${pc.map(p => F.esc(p.k)).join(' e ')}</b> para clientes que ainda não compram.`);
+    const slides = [
+      `<div class="slide capa"><img class="lgc" src="${logoB}" alt="Raffinée"><div class="eyebrow" style="color:#D9BD8C">${F.esc(document.getElementById('ap-tipo')?.value || 'Reunião de resultados')}</div><h2>${F.esc(tit)}</h2><div style="font-size:2cqw;margin-top:1cqw;color:#E9D9CD">${per} · ${F.esc(esc)}</div><div class="ss">Para adoçar todos os negócios.</div></div>`,
+      `<div class="slide">${cab('01 · Resumo executivo', 'Onde estamos')}<div class="sb"><div class="kg">
+        ${kb('Faturamento acumulado', F.brlC(k.c.val), `${F.var(k.gR)} vs. ${f.ano - 1}`, clsVar(k.gR))}${kb('Atingimento da meta', F.pct(k.ating), k.gap !== null ? `Gap ${F.brlC(k.gap)}` : 'sem meta', k.gap >= 0 ? 'up' : 'dn')}${kb('Volume acumulado', F.kg(k.c.kg), `${F.var(k.gK)} vs. ${f.ano - 1}`, clsVar(k.gK))}
+        ${kb('R$/kg médio', F.brl2(k.rkg), `${F.var(k.rkgA ? k.rkg / k.rkgA - 1 : null)} vs. ${f.ano - 1}`, clsVar(k.rkg - k.rkgA))}${kb('Clientes ativos (90 dias)', F.int(k.at), `${F.var(k.atAnt ? k.at / k.atAnt - 1 : null)} vs. ${f.ano - 1}`, clsVar(k.at - k.atAnt))}${kb('Cobertura da carteira', F.pct(k.cart.cobertura), `${cc.comprou} de ${k.cart.total - cc.inativo} compraram no mês`, '')}</div></div>${rod(1)}</div>`,
+      `<div class="slide">${cab('02 · Objetivo x realizado', k.ating !== null ? `${F.pct(k.ating)} da meta acumulada` : 'Evolução acumulada')}<div class="sb"><div class="cv"><canvas id="dk-acum"></canvas></div>
+        <div style="width:30%;display:flex;flex-direction:column;gap:1cqw;font-size:1.5cqw">${k.metaAno !== null ? `<div>Meta anual<div class="big" style="font-size:3cqw">${F.brlC(k.metaAno)}</div></div><div>Falta vender<div class="big" style="font-size:3cqw">${F.brlC(k.falta)}</div></div><div>Ritmo necessário<div class="big" style="font-size:3cqw">${F.brlC(k.ritmo)}<span style="font-size:1.5cqw">/mês</span></div></div><div style="color:#7C6861">Média dos últimos 3 meses: <b>${F.brlC(k.media3)}/mês</b></div>` : '<div>Sem meta cadastrada para este recorte.</div>'}</div></div>${rod(2)}</div>`,
+      `<div class="slide">${cab('03 · Crescimento', `${F.var(k.gR)} em R$ · ${F.var(k.gK)} em kg`)}<div class="sb"><div class="cv"><canvas id="dk-mes"></canvas></div>
+        <div style="width:30%;font-size:1.5cqw;display:flex;flex-direction:column;gap:1.2cqw"><div>${f.ano}<div class="big" style="font-size:3cqw">${F.brlC(k.c.val)}</div></div><div>${f.ano - 1} (mesmo período)<div class="big" style="font-size:3cqw;color:#B8905A">${F.brlC(k.p.val)}</div></div><div style="color:#7C6861">${Math.abs((k.gR ?? 0) - (k.gK ?? 0)) > .03 ? ((k.gR ?? 0) > (k.gK ?? 0) ? 'Parte do crescimento veio de preço e mix: o R$ cresceu mais que o volume.' : 'O volume cresceu mais que a receita: atenção ao preço médio.') : 'Receita e volume cresceram na mesma proporção.'}</div></div></div>${rod(3)}</div>`,
+      `<div class="slide">${cab('04 · Clientes', `${F.pct(k.cart.cobertura, 0)} de cobertura da carteira`)}<div class="sb"><div style="width:32%;display:flex;flex-direction:column;gap:1cqw;font-size:1.6cqw">
+        ${Object.entries(ST).map(([s, [n, , c]]) => `<div style="display:flex;justify-content:space-between;background:#F7EFE6;border-radius:.8cqw;padding:1cqw 1.4cqw"><span><span style="display:inline-block;width:1.2cqw;height:1.2cqw;border-radius:50%;background:${c};margin-right:.8cqw"></span>${n}</span><b>${cc[s]}</b></div>`).join('')}
+        <div style="color:#7C6861;font-size:1.3cqw">Top 5 clientes concentram ${F.pct(k.conc5, 0)} do faturamento.</div></div>
+        <div style="flex:1"><table><thead><tr><th>Clientes em atraso de maior peso</th><th>Vendedor</th><th class="n">Dias</th><th class="n">Média mensal</th></tr></thead><tbody>${pend.map(c => `<tr><td>${F.esc(c.cli)}</td><td>${F.esc(c.vend)}</td><td class="n">${c.dias}</td><td class="n">${F.brlC(c.media)}</td></tr>`).join('')}</tbody></table></div></div>${rod(4)}</div>`,
+      `<div class="slide">${cab('05 · Produtos', 'Kg e R$ acumulados por produto')}<div class="sb"><div style="flex:1.3"><table><thead><tr><th>Produto</th><th class="n">R$</th><th class="n">Var.</th><th class="n">Kg</th><th class="n">Var.</th><th>Movimento</th></tr></thead><tbody>${k.prods.slice(0, 9).map(p => `<tr><td>${F.esc(p.k)}</td><td class="n">${F.brlC(p.val)}</td><td class="n ${clsVar(p.gR)}">${F.var(p.gR, 0)}</td><td class="n">${F.kg(p.kg)}</td><td class="n ${clsVar(p.gK)}">${F.var(p.gK, 0)}</td><td>${p.cls[0]}</td></tr>`).join('')}</tbody></table></div><div class="cv"><canvas id="dk-mx"></canvas></div></div>${rod(5)}</div>`,
+      `<div class="slide">${cab('06 · Vendedores', 'Atingimento da meta acumulada')}<div class="sb"><div style="flex:1"><table><thead><tr><th>Vendedor</th><th class="n">Meta</th><th class="n">Realizado</th><th class="n">Ating.</th><th class="n">Var. YoY</th><th class="n">Kg</th><th class="n">Ticket médio</th></tr></thead><tbody>${k.vends.map(v => `<tr><td><b>${F.esc(v.k)}</b></td><td class="n">${v.meta !== null ? F.brlC(v.meta) : '—'}</td><td class="n">${F.brlC(v.val)}</td><td class="n ${v.ating >= 1 ? 'up' : v.ating >= .9 ? 'nt' : 'dn'}"><b>${F.pct(v.ating)}</b></td><td class="n ${clsVar(v.gR)}">${F.var(v.gR)}</td><td class="n">${F.kg(v.kg)}</td><td class="n">${F.brlC(v.ticket)}</td></tr>`).join('')}</tbody></table></div></div>${rod(6)}</div>`,
+      `<div class="slide">${cab('07 · Pontos de atenção', 'O que os números estão dizendo')}<div class="sb"><ul class="sl" style="flex:1">${at.slice(0, 6).map(a => `<li>${a.h}</li>`).join('')}</ul></div>${rod(7)}</div>`,
+      `<div class="slide">${cab('08 · Próximas ações', 'Compromissos para o próximo período')}<div class="sb"><ul class="sl" style="flex:1">${acoes.map((a, i) => `<li><b>${i + 1}.</b><span>${a}</span></li>`).join('') || '<li>Manter o ritmo atual.</li>'}</ul></div>${rod(8)}</div>`
+    ];
+    document.getElementById('overlay').innerHTML = `<div class="deck"><div class="bar-t"><b>Apresentação</b><span>${per} · ${F.esc(esc)}</span><span class="sp"></span><button class="btn sm" onclick="DECK.pdf()">${ic('down')}Gerar PDF</button><button class="btn sm" onclick="DECK.fechar()">Fechar</button></div><div class="stage">${slides.join('')}</div></div>`;
+    document.addEventListener('keydown', DECK._esc);
+    const n = { plugins: { legend: { display: false } }, animation: false };
+    const fm = f.mFim; let a = 0, b = 0;
+    this.ch = [];
+    const mk = (id, cfg) => { const el = document.getElementById(id); if (el && window.Chart) this.ch.push(new Chart(el, cfg)); };
+    mk('dk-acum', { type: 'line', data: { labels: MESES.slice(0, fm), datasets: [{ data: k.mensal.slice(0, fm).map(x => (a += x.val)), borderColor: '#5A1E24', backgroundColor: 'rgba(90,30,36,.12)', fill: true, borderWidth: 3, tension: .25, pointRadius: 3 }, ...(k.serieMeta ? [{ data: k.serieMeta.slice(0, fm).map(x => (b += x.val)), borderColor: '#B8905A', borderDash: [6, 5], borderWidth: 2, tension: .25, pointRadius: 2 }] : [])] }, options: { ...n, scales: { y: { ticks: { callback: v => F.brlC(v), color: '#7C6861' }, grid: { color: '#EFE4D9' } }, x: { ticks: { color: '#7C6861' }, grid: { display: false } } } } });
+    mk('dk-mes', { type: 'bar', data: { labels: MESES.slice(0, fm), datasets: [{ data: k.mensalAnt.slice(0, fm).map(x => x.val), backgroundColor: '#E6D5C3', borderRadius: 4 }, { data: k.mensal.slice(0, fm).map(x => x.val), backgroundColor: '#5A1E24', borderRadius: 4 }] }, options: { ...n, scales: { y: { ticks: { callback: v => F.brlC(v), color: '#7C6861' }, grid: { color: '#EFE4D9' } }, x: { ticks: { color: '#7C6861' }, grid: { display: false } } } } });
+    const ps = k.prods.filter(p => p.gR !== null && p.gK !== null); const mx = Math.max(...ps.map(p => p.val), 1);
+    mk('dk-mx', { type: 'bubble', data: { datasets: [{ data: ps.map(p => ({ x: p.gK * 100, y: p.gR * 100, r: 4 + Math.sqrt(p.val / mx) * 16 })), backgroundColor: ps.map(p => p.gR >= 0 && p.gK >= 0 ? 'rgba(90,30,36,.8)' : p.gR >= 0 ? 'rgba(201,146,46,.8)' : 'rgba(194,59,53,.7)') }] }, options: { ...n, scales: { x: { title: { display: true, text: 'Crescimento em kg', color: '#7C6861' }, ticks: { callback: v => v + '%', color: '#7C6861' } }, y: { title: { display: true, text: 'Crescimento em R$', color: '#7C6861' }, ticks: { callback: v => v + '%', color: '#7C6861' } } } } });
+  },
+  _esc(e) { if (e.key === 'Escape') DECK.fechar(); },
+  pdf() { document.body.classList.add('printing'); setTimeout(() => { window.print(); setTimeout(() => document.body.classList.remove('printing'), 500); }, 100); },
+  fechar() { (this.ch || []).forEach(c => c.destroy()); document.getElementById('overlay').innerHTML = ''; document.removeEventListener('keydown', DECK._esc); }
+};
+
+/* ---------------- APP (inicialização, cache e atualização) ---------------- */
+const APP = {
+  tema(t) { document.documentElement.dataset.theme = t; CFG.set({ tema: t }); UI.render(); },
+  async recarregar() {
+    if (CFG.demo) { DB.carregar(DEMO.gerar()); DB.fonte = 'dados de exemplo'; DB.atualizadoEm = Date.now(); return; }
+    const j = await API.dados(); DB.carregar(j.dados); DB.atualizadoEm = Date.now(); DB.fonte = 'base atualizada em ' + new Date().toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+    try { localStorage.setItem('raffinee_cache', JSON.stringify({ t: Date.now(), d: j.dados })); } catch (e) {}
+    UI.filtros(); UI.render();
+  },
+  async init() {
+    // Conexão por link: index.html?api=...&k=...
+    const qs = new URLSearchParams(location.search); if (qs.get('api')) { CFG.set({ api: qs.get('api'), chave: qs.get('k') || '', demo: false }); history.replaceState(null, '', location.pathname + location.hash); }
+    const c = CFG.get(); if (c.tema) document.documentElement.dataset.theme = c.tema;
+    UI.init();
+    let carregou = false;
+    if (!CFG.demo) { try { const cache = JSON.parse(localStorage.getItem('raffinee_cache') || 'null'); if (cache) { DB.carregar(cache.d); DB.fonte = 'cópia local de ' + new Date(cache.t).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }); carregou = true; } } catch (e) {} }
+    if (CFG.demo) { DB.carregar(DEMO.gerar()); DB.fonte = 'dados de exemplo'; carregou = true; }
+    const hoje = new Date();
+    const fs = c.filtros; const temAno = y => DB.anos.includes(y);
+    ENG.f = fs && temAno(fs.ano) ? { ...ENG.f, ...fs } : { ano: DB.anos[0] || hoje.getFullYear(), mFim: 0, vend: '', cli: '', prod: '', canal: '' };
+    if (!ENG.f.mFim) ENG.f.mFim = ENG.f.ano === hoje.getFullYear() ? hoje.getMonth() + 1 : 12;
+    if (carregou) { UI.filtros(); UI.rota(); document.getElementById('loading').hidden = true; }
+    if (!CFG.demo) { try { await this.recarregar(); document.getElementById('loading').hidden = true; if (!carregou) UI.rota(); }
+      catch (e) { document.getElementById('loading').hidden = true; if (!carregou) { DB.carregar(DEMO.gerar()); DB.fonte = 'dados de exemplo'; UI.filtros(); UI.rota(); } UI.toast('Não foi possível ler a base de dados: ' + e.message + '. Confira em Configurações.', 7000); } }
+    this.vigiarVersao();
+  },
+  /** Avisa quando uma nova versão foi publicada no GitHub (version.json) */
+  vigiarVersao() {
+    if (!/^https?:/.test(location.protocol)) return;
+    const checa = async () => { try { const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' }); if (!r.ok) return; const v = await r.json();
+      if (v.versao && v.versao !== APP_VERSION && !document.querySelector('.upd')) { const d = document.createElement('div'); d.className = 'upd'; d.innerHTML = `Nova versão v${F.esc(v.versao)} disponível <button onclick="location.reload()">Atualizar</button>`; document.body.appendChild(d); } } catch (e) {} };
+    setTimeout(checa, 4000); setInterval(checa, 5 * 60 * 1000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) checa(); });
+  }
+};
+APP.init();
+</script>
+</body>
+</html>

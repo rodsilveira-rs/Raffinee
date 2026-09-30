@@ -1,0 +1,33 @@
+# Publica o backend (pasta apps-script/) como NOVA VERSÃO da implantação existente.
+# Só roda quando algo dentro de apps-script/ muda. O index (GitHub Pages) atualiza sozinho a cada push.
+#
+# Segredos necessários (Settings > Secrets and variables > Actions):
+#   CLASPRC_JSON    conteúdo do arquivo ~/.clasprc.json gerado por "clasp login" no seu computador
+#   SCRIPT_ID       ID do projeto Apps Script (Configurações do projeto > ID do script)
+#   DEPLOYMENT_ID   ID da implantação da Web App (Implantar > Gerenciar implantações)
+name: Publicar backend Apps Script
+
+on:
+  push:
+    branches: [main]
+    paths: ['apps-script/**']
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Instalar clasp
+        run: npm install -g @google/clasp@2.4.2
+      - name: Credenciais
+        run: |
+          echo '${{ secrets.CLASPRC_JSON }}' > ~/.clasprc.json
+          echo '{"scriptId":"${{ secrets.SCRIPT_ID }}","rootDir":"apps-script"}' > .clasp.json
+      - name: Enviar código
+        run: clasp push -f
+      - name: Nova versão na mesma implantação
+        run: clasp deploy -i "${{ secrets.DEPLOYMENT_ID }}" -d "GitHub ${GITHUB_SHA::7} - ${{ github.event.head_commit.message }}"
