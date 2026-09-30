@@ -55,6 +55,17 @@ button{cursor:pointer}
 .nav a.on{background:linear-gradient(90deg,rgba(201,164,106,.28),rgba(201,164,106,.08));border-color:rgba(217,189,140,.45);color:#fff}
 .nav .sep{height:1px;background:rgba(255,255,255,.08);margin:10px 8px}
 .side .tag{margin-top:auto;padding:24px 10px 4px;font-family:var(--f-script);font-size:23px;line-height:1.15;color:#E9D9CD;opacity:.9}
+.side .foto{margin:auto 6px 0;border-radius:14px;overflow:hidden;aspect-ratio:4/5;max-height:250px;position:relative;border:1px solid rgba(217,189,140,.25);flex:none}
+.side .foto img{width:100%;height:100%;object-fit:cover;display:block}
+.side .foto::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(31,12,14,0) 45%,rgba(31,12,14,.85) 100%)}
+.side .foto + .tag{margin-top:0;padding-top:14px}
+@media (max-height:900px){.side .foto{display:none}.side .foto + .tag{margin-top:auto}}
+.banner{position:relative;min-height:92px;border-radius:var(--r);overflow:hidden;display:flex;align-items:center;gap:22px;padding:16px 26px;background:#2C1214 url('assets/Raffinee.jpg') right center/cover no-repeat;color:#F6ECE2;box-shadow:var(--sombra)}
+.banner::before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,#2C1214 0%,rgba(44,18,20,.94) 36%,rgba(44,18,20,.45) 68%,rgba(44,18,20,.08) 100%)}
+.banner>*{position:relative}
+.banner img{height:38px;width:auto}
+.banner .b2{font-size:14px;color:#E3CFBF;border-left:1px solid rgba(217,189,140,.4);padding-left:22px;line-height:1.35}
+.banner .b2 b{display:block;color:#fff;font-weight:700;font-size:15px}
 .side .ver{padding:8px 10px 0;font-size:11px;color:#B59C90}
 
 .main{min-width:0;padding:22px 26px 40px;display:flex;flex-direction:column;gap:18px}
@@ -263,6 +274,8 @@ table.t{width:100%;border-collapse:collapse;font-size:13px;min-width:640px}
   .mtop button{background:none;border:0;color:#fff;width:36px;height:36px;display:flex;align-items:center;justify-content:center}
   .mtop svg{width:22px;height:22px}
   .main{padding:16px 16px 100px}
+  .banner{min-height:70px;padding:12px 16px;gap:14px;background-position:70% center}
+  .banner img{height:28px}.banner .b2{font-size:12px;padding-left:14px}.banner .b2 b{font-size:13px}
   .top h1{font-size:28px}
   .filtros{display:none}
   .filtros.open{display:flex}
@@ -306,6 +319,7 @@ table.t{width:100%;border-collapse:collapse;font-size:13px;min-width:640px}
   <aside class="side" id="side">
     <a class="logo" href="#visao" aria-label="Raffinée — Visão Executiva"><img src="assets/raffinee-logo.png" alt="Raffinée" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'logo-txt',textContent:'Raffinée'}))"></a>
     <nav class="nav" id="nav"></nav>
+    <div class="foto"><img src="assets/Raffinee.jpg" alt="Sobremesas Raffinée" onerror="this.parentElement.remove()"></div>
     <div class="tag">Mais que sobremesas,<br>momentos especiais.</div>
     <div class="ver" id="ver-side"></div>
   </aside>
@@ -885,6 +899,7 @@ VIEWS.visao = { t: 'Visão Executiva',
       return `<div class="bar click" onclick="VIEWS.vendedores.abre('${F.esc(v.k).replace(/'/g, "\\'")}')"><span class="nm">${F.esc(v.k)}</span><span class="tr"><span class="fi" style="display:block;width:${w}%;background:${cor}"></span></span><span class="vl ${v.ating >= 1 ? 'up' : v.ating >= .9 ? 'nt' : 'dn'}">${F.pct(v.ating, 0)}</span></div>`; }).join('');
     const at = ENG.atencao(k);
     return `
+    <div class="banner"><img src="assets/raffinee-logo.png" alt="Raffinée"><div class="b2"><b>Dados que transformam resultado em decisão</b>Objetivo x realizado, clientes e produtos em um só lugar.</div></div>
     <div class="kpis">${tiles}</div>
     <div class="row2">
       <div class="card"><h3>${ic('visao')}Objetivo x Realizado acumulado<span class="dir leg"><span><i class="d"></i>${k.serieMeta && k.serieMeta.some(x => x.val) ? 'Meta acumulada' : ENG.antLbl() + ' acumulado'}</span><span><i></i>Realizado acumulado</span></span></h3><div class="chart-box" style="height:250px"><canvas id="acum"></canvas></div></div>
